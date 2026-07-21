@@ -59,6 +59,9 @@ export class AIChatService {
      */
     const messages = toLangChainMessages(history);
 
+    console.log("History sent to agent:");
+    console.dir(messages, { depth: null });
+
     /**
      * Invoke the AI agent.
      */
@@ -77,16 +80,21 @@ export class AIChatService {
     });
 
     /**
-     * Persist every message generated
-     * during this execution.
+     * result.newMessages contains:
      *
-     * Example:
-     * AI(tool call)
-     * Tool
-     * AI(final)
+     * HumanMessage
+     * AIMessage(tool call)
+     * ToolMessage
+     * AIMessage(final)
+     *
+     * The HumanMessage has already been
+     * saved above, so skip it.
      */
+    const generatedMessages = result.newMessages.filter(
+      (message) => !(message instanceof HumanMessage),
+    );
     await this.messageService.saveMany(
-      toDatabaseMessages(conversation.id, result.newMessages),
+      toDatabaseMessages(conversation.id, generatedMessages),
     );
 
     /**

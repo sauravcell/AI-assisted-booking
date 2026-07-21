@@ -13,7 +13,7 @@ export interface Message {
 
   toolName: string | null;
 
-  // metadata: Record<string, any> | null;
+  metadata: Record<string, any> | null;
 
   createdAt: Date;
 }
@@ -29,5 +29,5 @@ export interface CreateMessage {
 
   toolName?: string | null;
 
-  // metadata?: Record<string, any> | null;
+  metadata?: Record<string, any> | null;
 }

@@ -9,19 +9,25 @@ export class MessageRepository {
 
   async create(message: CreateMessage): Promise<Message> {
     const query = `
-      INSERT INTO messages (
-        conversation_id,
-        role,
-        content
-      )
-      VALUES ($1, $2, $3)
-      RETURNING *;
+        INSERT INTO messages (
+            conversation_id,
+            role,
+            content,
+            tool_call_id,
+            tool_name,
+            metadata
+        )
+        VALUES ($1,$2,$3,$4,$5,$6)
+        RETURNING *;
     `;
 
     const result = await this.pool.query(query, [
       message.conversationId,
       message.role,
       message.content,
+      message.toolCallId ?? null,
+      message.toolName ?? null,
+      message.metadata ?? null,
     ]);
 
     return result.rows[0];
@@ -75,7 +81,7 @@ export class MessageRepository {
 
     const placeholders = messages
       .map((message, index) => {
-        const offset = index * 5;
+        const offset = index * 6;
 
         values.push(
           message.conversationId,
@@ -83,9 +89,10 @@ export class MessageRepository {
           message.content,
           message.toolCallId ?? null,
           message.toolName ?? null,
+          message.metadata ?? null,
         );
 
-        return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5})`;
+        return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6})`;
       })
       .join(", ");
 
@@ -95,7 +102,8 @@ export class MessageRepository {
       role,
       content,
       tool_call_id,
-      tool_name
+      tool_name,
+      metadata
     )
     VALUES ${placeholders}
     RETURNING *;

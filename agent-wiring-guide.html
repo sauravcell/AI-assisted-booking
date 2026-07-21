@@ -1,0 +1,746 @@
+<title>Wiring the Booking Agent</title>
+<style>
+:root{
+  --paper:#F1F2EC;
+  --ink:#23261F;
+  --muted: color-mix(in srgb, var(--ink) 58%, var(--paper));
+  --faint: color-mix(in srgb, var(--ink) 32%, var(--paper));
+  --border: color-mix(in srgb, var(--ink) 16%, var(--paper));
+  --card: color-mix(in srgb, var(--paper) 97%, var(--ink));
+  --accent:#A87A22;
+  --accent-soft: color-mix(in srgb, var(--accent) 16%, var(--paper));
+  --tool:#2A5A88;
+  --tool-soft: color-mix(in srgb, var(--tool) 14%, var(--paper));
+  --plumb:#5B6156;
+  --plumb-soft: color-mix(in srgb, var(--plumb) 14%, var(--paper));
+  --code-bg:#14171B;
+  --code-text:#E7E8E1;
+  --code-border: color-mix(in srgb, black 40%, var(--code-bg));
+  --danger:#9A4A3A;
+  --danger-soft: color-mix(in srgb, var(--danger) 14%, var(--paper));
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#14171B;
+    --ink:#E7E8E1;
+    --muted: color-mix(in srgb, var(--ink) 62%, var(--paper));
+    --faint: color-mix(in srgb, var(--ink) 34%, var(--paper));
+    --border: color-mix(in srgb, var(--ink) 20%, var(--paper));
+    --card: color-mix(in srgb, var(--paper) 92%, white);
+    --accent:#D8AE55;
+    --accent-soft: color-mix(in srgb, var(--accent) 16%, var(--paper));
+    --tool:#75A6DC;
+    --tool-soft: color-mix(in srgb, var(--tool) 16%, var(--paper));
+    --plumb:#9BA396;
+    --plumb-soft: color-mix(in srgb, var(--plumb) 14%, var(--paper));
+    --code-bg:#0A0C0E;
+    --code-text:#DCE0D8;
+    --code-border: color-mix(in srgb, white 8%, var(--code-bg));
+    --danger:#D98A78;
+    --danger-soft: color-mix(in srgb, var(--danger) 14%, var(--paper));
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#14171B; --ink:#E7E8E1;
+  --muted: color-mix(in srgb, var(--ink) 62%, var(--paper));
+  --faint: color-mix(in srgb, var(--ink) 34%, var(--paper));
+  --border: color-mix(in srgb, var(--ink) 20%, var(--paper));
+  --card: color-mix(in srgb, var(--paper) 92%, white);
+  --accent:#D8AE55; --accent-soft: color-mix(in srgb, var(--accent) 16%, var(--paper));
+  --tool:#75A6DC; --tool-soft: color-mix(in srgb, var(--tool) 16%, var(--paper));
+  --plumb:#9BA396; --plumb-soft: color-mix(in srgb, var(--plumb) 14%, var(--paper));
+  --code-bg:#0A0C0E; --code-text:#DCE0D8; --code-border: color-mix(in srgb, white 8%, var(--code-bg));
+  --danger:#D98A78; --danger-soft: color-mix(in srgb, var(--danger) 14%, var(--paper));
+}
+:root[data-theme="light"]{
+  --paper:#F1F2EC; --ink:#23261F;
+  --muted: color-mix(in srgb, var(--ink) 58%, var(--paper));
+  --faint: color-mix(in srgb, var(--ink) 32%, var(--paper));
+  --border: color-mix(in srgb, var(--ink) 16%, var(--paper));
+  --card: color-mix(in srgb, var(--paper) 97%, var(--ink));
+  --accent:#A87A22; --accent-soft: color-mix(in srgb, var(--accent) 16%, var(--paper));
+  --tool:#2A5A88; --tool-soft: color-mix(in srgb, var(--tool) 14%, var(--paper));
+  --plumb:#5B6156; --plumb-soft: color-mix(in srgb, var(--plumb) 14%, var(--paper));
+  --code-bg:#14171B; --code-text:#E7E8E1; --code-border: color-mix(in srgb, black 40%, var(--code-bg));
+  --danger:#9A4A3A; --danger-soft: color-mix(in srgb, var(--danger) 14%, var(--paper));
+}
+
+*{box-sizing:border-box;}
+html{-webkit-text-size-adjust:100%;}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family: ui-serif, Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  line-height:1.6;
+}
+.font-sans{ font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+.font-mono{ font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace; }
+
+::selection{ background: var(--accent-soft); }
+a{ color: var(--tool); }
+a:focus-visible, button:focus-visible, summary:focus-visible{ outline: 2px solid var(--tool); outline-offset: 2px; }
+
+.wrap{ max-width: 900px; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+.wide{ max-width: 900px; }
+
+header.top{
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1.75rem; margin-bottom: 2.25rem;
+}
+.eyebrow{
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 0.6rem;
+}
+h1{
+  font-size: clamp(1.9rem, 4vw, 2.6rem); margin: 0 0 0.5rem; line-height:1.15;
+  text-wrap: balance; font-weight: 600;
+}
+.sub{ font-family: ui-sans-serif, system-ui, sans-serif; color: var(--muted); font-size:1.05rem; max-width: 62ch; margin:0; }
+
+nav.toc{
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  display:flex; flex-wrap:wrap; gap: 0.4rem 0.9rem;
+  margin-top: 1.4rem; font-size: 0.86rem;
+}
+nav.toc a{
+  color: var(--muted); text-decoration:none; border-bottom: 1px dotted var(--faint);
+  padding-bottom:1px;
+}
+nav.toc a:hover{ color: var(--ink); border-color: var(--ink); }
+
+section{ margin: 3.2rem 0; }
+h2{
+  font-size: 1.5rem; margin: 0 0 0.3rem; text-wrap: balance; font-weight: 600;
+  scroll-margin-top: 1.5rem;
+}
+h2 .kicker{
+  display:block; font-family: ui-monospace, monospace; font-size:0.68rem;
+  letter-spacing:0.12em; text-transform:uppercase; color: var(--accent); margin-bottom:0.35rem;
+}
+h3{ font-size: 1.12rem; margin: 1.6rem 0 0.4rem; font-weight: 600; scroll-margin-top: 1.5rem; }
+p{ margin: 0.7rem 0; max-width: 68ch; }
+.lede{ font-family: ui-sans-serif, system-ui, sans-serif; color: var(--muted); max-width: 66ch; }
+
+.term{ border-bottom: 1px dotted var(--faint); }
+
+/* file card */
+.file{
+  border: 1px solid var(--border); border-left-width: 4px; border-radius: 6px;
+  background: var(--card); padding: 1.1rem 1.3rem 1.3rem; margin: 1.1rem 0 1.6rem;
+}
+.file.brain{ border-left-color: var(--accent); }
+.file.hands{ border-left-color: var(--tool); }
+.file.plumb{ border-left-color: var(--plumb); }
+.file.stub{ border-left-color: var(--danger); }
+
+.file-head{
+  display:flex; align-items:baseline; justify-content:space-between; gap:1rem; flex-wrap:wrap;
+  font-family: ui-monospace, monospace; margin-bottom:0.5rem;
+}
+.file-path{ font-size:0.88rem; font-weight:600; }
+.file-tag{
+  font-size:0.66rem; letter-spacing:0.08em; text-transform:uppercase;
+  padding: 0.15rem 0.5rem; border-radius: 3px; white-space:nowrap;
+}
+.brain .file-tag{ background: var(--accent-soft); color: var(--accent); }
+.hands .file-tag{ background: var(--tool-soft); color: var(--tool); }
+.plumb .file-tag{ background: var(--plumb-soft); color: var(--plumb); }
+.stub .file-tag{ background: var(--danger-soft); color: var(--danger); }
+
+.file p{ font-family: ui-sans-serif, system-ui, sans-serif; font-size:0.96rem; }
+
+pre{
+  background: var(--code-bg); color: var(--code-text);
+  border: 1px solid var(--code-border);
+  border-radius: 6px; padding: 0.85rem 1rem; overflow-x:auto;
+  font-size: 0.82rem; line-height:1.55; margin: 0.7rem 0;
+}
+code{ font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+p code, li code{
+  background: var(--plumb-soft); padding: 0.05rem 0.35rem; border-radius: 3px; font-size:0.88em;
+}
+
+.callout{
+  font-family: ui-sans-serif, system-ui, sans-serif; font-size:0.92rem;
+  border: 1px solid var(--border); border-left: 3px solid var(--tool);
+  background: var(--tool-soft); padding: 0.8rem 1rem; border-radius: 4px; margin: 1rem 0;
+}
+.callout.next{ border-left-color: var(--danger); background: var(--danger-soft); }
+.callout b{ color: var(--ink); }
+
+.legend{
+  font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.85rem;
+  display:flex; gap:1.4rem; flex-wrap:wrap; margin: 0.9rem 0 0;
+}
+.legend span{ display:inline-flex; align-items:center; gap:0.4rem; color: var(--muted); }
+.dot{ width:0.65rem; height:0.65rem; border-radius:50%; display:inline-block; }
+.dot.brain{ background: var(--accent); }
+.dot.hands{ background: var(--tool); }
+.dot.plumb{ background: var(--plumb); }
+.dot.stub{ background: var(--danger); }
+
+.mermaid-box{
+  border:1px solid var(--border); border-radius:8px; padding: 1rem; background: var(--card);
+  overflow-x:auto; margin: 1.1rem 0;
+}
+
+table{ border-collapse: collapse; width:100%; font-family: ui-sans-serif, system-ui, sans-serif; font-size:0.88rem; }
+.table-wrap{ overflow-x:auto; border:1px solid var(--border); border-radius:6px; margin:0.9rem 0; }
+th,td{ text-align:left; padding: 0.5rem 0.7rem; border-bottom:1px solid var(--border); vertical-align:top; }
+th{ color: var(--muted); font-weight:600; font-size:0.76rem; text-transform:uppercase; letter-spacing:0.04em; }
+tr:last-child td{ border-bottom:none; }
+
+ol.steps{ font-family: ui-sans-serif, system-ui, sans-serif; padding-left: 1.3rem; }
+ol.steps li{ margin: 0.45rem 0; }
+
+.checklist{ font-family: ui-sans-serif, system-ui, sans-serif; padding-left:1.2rem; }
+.checklist li{ margin:0.5rem 0; }
+
+dl.glossary{ font-family: ui-sans-serif, system-ui, sans-serif; font-size:0.94rem; }
+dl.glossary dt{ font-weight:600; margin-top:0.9rem; }
+dl.glossary dd{ margin:0.2rem 0 0; color: var(--muted); max-width:64ch; }
+
+footer{
+  border-top:1px solid var(--border); margin-top:3rem; padding-top:1.2rem;
+  font-family: ui-sans-serif, system-ui, sans-serif; font-size:0.82rem; color: var(--faint);
+}
+
+@media (prefers-reduced-motion: reduce){ *{ scroll-behavior:auto !important; } }
+html{ scroll-behavior: smooth; }
+</style>
+
+<div class="wrap">
+
+<header class="top">
+  <p class="eyebrow font-mono">ai-booking-platform &middot; internal guide</p>
+  <h1>Wiring the Booking Agent</h1>
+  <p class="sub">A walkthrough of <code>src/telegram/telegram.service.ts</code>, <code>src/ai/</code>, and <code>src/agent/</code> &mdash;
+  written for the person about to build <code>checkAvailability</code>, <code>createBooking</code>, and <code>cancelBooking</code> next.</p>
+  <nav class="toc">
+    <a href="#big-picture">1. The big picture</a>
+    <a href="#telegram">2. Telegram layer</a>
+    <a href="#ai-layer">3. AI layer</a>
+    <a href="#agent-layer">4. Agent layer</a>
+    <a href="#add-a-tool">5. Adding your next tool</a>
+    <a href="#glossary">Glossary</a>
+  </nav>
+</header>
+
+<section id="big-picture">
+  <h2><span class="kicker">01</span>The big picture, before the details</h2>
+  <p class="lede">Three folders, three jobs. <code>telegram/</code> only knows how to talk to Telegram. <code>ai/</code> only knows how to
+  turn a chat message into a saved conversation. <code>agent/</code> only knows how to think and act &mdash; it has never heard of Telegram
+  and never will. Each layer calls the one below it and hands back a plain result; none of them reach two layers down.</p>
+
+  <div class="mermaid-box">
+  <pre class="mermaid">
+sequenceDiagram
+    participant U as Telegram user
+    participant TC as TelegramController
+    participant TS as TelegramService
+    participant CS as CustomerService
+    participant AI as AIChatService
+    participant DB as Postgres (conversations/messages)
+    participant AS as AgentService (agent/)
+
+    U->>TC: sends text message
+    TC-->>U: 200 OK (ack immediately)
+    TC->>TS: handleUpdate(update)
+    TS->>CS: findOrCreate(telegramChatId)
+    CS-->>TS: customer
+    TS->>AI: chat({customerId, text})
+    AI->>DB: findOrCreate conversation
+    AI->>DB: save incoming user message
+    AI->>DB: load full message history
+    AI->>AS: invoke(state with messages)
+    AS-->>AI: { response, newMessages }
+    AI->>DB: save newMessages (assistant/tool)
+    AI-->>TS: { response }
+    TS->>U: sendMessage(reply text)
+  </pre>
+  </div>
+
+  <p>Notice the acknowledgement happens <strong>before</strong> any real work: Telegram expects a fast response to a webhook
+  (a URL that Telegram itself calls the moment a message arrives, as opposed to your server having to repeatedly ask
+  "any new messages?"). If you reply slowly, Telegram assumes delivery failed and retries, which would run the whole
+  pipeline twice. That's why <code>telegram.controller.ts</code> sends <code>200</code> first and only then processes the update.</p>
+
+  <div class="legend">
+    <span><span class="dot brain"></span>Brain &mdash; the LLM, prompt, provider</span>
+    <span><span class="dot hands"></span>Hands &mdash; tools, registry, adapter</span>
+    <span><span class="dot plumb"></span>Plumbing &mdash; graph, state, service, utils</span>
+    <span><span class="dot stub"></span>Empty stub &mdash; not built yet</span>
+  </div>
+  <p>The color tags above follow every file card below, so you can tell at a glance whether a file is deciding something,
+  doing something, or just carrying data between the two.</p>
+</section>
+
+<section id="telegram">
+  <h2><span class="kicker">02</span>The Telegram layer</h2>
+  <p class="lede">Job: translate between "Telegram's JSON format" and "our internal chat request." Nothing about doctors,
+  bookings, or LLMs lives here.</p>
+
+  <div class="file plumb">
+    <div class="file-head">
+      <span class="file-path">src/telegram/telegram.service.ts</span>
+      <span class="file-tag">translator</span>
+    </div>
+    <p><code>TelegramService</code> receives two dependencies through its constructor
+    (<span class="term">constructor injection</span> &mdash; instead of creating its own <code>CustomerService</code>/<code>AIChatService</code>
+    internally, it accepts already-built ones from the outside. This means the class doesn't need to know <em>how</em> those
+    services are built, and you can hand it fake/mock versions in tests).</p>
+
+<pre><code>async handleUpdate(update: TelegramUpdate): Promise&lt;void&gt; {
+  const message = update.message;
+  if (!message) return;
+  if (!message.text) { /* text-only for now */ await this.sendMessage(...); return; }
+
+  try {
+    await this.handleTextMessage(message);
+  } catch (error) {
+    console.error("Telegram update failed:", error);
+    await this.sendMessage(message.chat.id, "Sorry, something went wrong. Please try again.");
+  }
+}</code></pre>
+
+    <p>Three things worth internalizing here:</p>
+    <ol class="steps">
+      <li><strong>Guard clauses first.</strong> No message, or a non-text message (photo, sticker, voice note) &mdash; bail out early
+      with a friendly reply instead of letting it fall through into logic that assumes <code>text</code> exists.</li>
+      <li><strong>One try/catch wraps the entire business flow.</strong> If anything downstream throws &mdash; the database, the LLM
+      call, a missing tool &mdash; the user still gets a plain-English apology instead of the request silently vanishing.</li>
+      <li><code>handleTextMessage</code> is the real body: find-or-create the customer, call the AI layer, send the reply.
+      That's it &mdash; three calls, no branching on what the AI actually said.</li>
+    </ol>
+
+    <div class="callout">
+      <b>Junior-dev note:</b> <code>message.chat.id</code> is typed as <code>any</code> right now (see <code>telegram.types.ts</code>),
+      with a comment admitting the DB column is a <code>number</code>. If you touch customer lookup later, know that this typing
+      is intentionally loose today, not an oversight to silently "fix" without checking the DB column type first.
+    </div>
+  </div>
+</section>
+
+<section id="ai-layer">
+  <h2><span class="kicker">03</span>The AI layer &mdash; one file, one job: orchestration</h2>
+  <p class="lede"><code>src/ai/ai-chat.service.ts</code> is the seam between "conversations stored as rows in Postgres" and
+  "conversations understood as message objects by LangChain" (the library the agent is built with). It never touches the
+  LLM directly &mdash; it only prepares input for <code>AgentService</code> and files away what comes back.</p>
+
+  <div class="file plumb">
+    <div class="file-head">
+      <span class="file-path">src/ai/ai-chat.service.ts</span>
+      <span class="file-tag">orchestrator</span>
+    </div>
+    <p><code>AIChatService.chat()</code> runs these steps, strictly in order:</p>
+    <div class="table-wrap"><table>
+      <tr><th>#</th><th>Step</th><th>Why it matters</th></tr>
+      <tr><td>1</td><td><code>conversationService.findOrCreate(customerId)</code></td>
+        <td>Reuses the customer's already-open conversation (a <span class="term">conversation</span> here just means "a row
+        that groups messages together," similar to one chat thread) instead of starting a new thread every message.</td></tr>
+      <tr><td>2</td><td><code>messageService.saveMessage({role:"user", ...})</code></td>
+        <td>The incoming message is saved <em>before</em> history is reloaded, specifically so step 3 already includes it &mdash;
+        no separate "append to memory" step needed.</td></tr>
+      <tr><td>3</td><td><code>messageService.getConversationMessages(conversationId)</code></td>
+        <td>Pulls the <em>entire</em> conversation back out of Postgres as plain <code>{role, content}</code> rows.</td></tr>
+      <tr><td>4</td><td><code>toLangChainMessages(history)</code></td>
+        <td>Converts those plain rows into LangChain's typed message classes (<code>HumanMessage</code>, <code>AIMessage</code>,
+        <code>ToolMessage</code>) &mdash; the shape the agent layer actually speaks.</td></tr>
+      <tr><td>5</td><td><code>agentService.invoke(state)</code></td>
+        <td>Hands everything to the <code>agent/</code> folder. This is the only line in the whole codebase where the
+        "outside world" calls into the agent.</td></tr>
+      <tr><td>6</td><td><code>toDatabaseMessages(conversationId, result.newMessages)</code> + <code>saveMany</code></td>
+        <td>Only the messages <em>produced during this run</em> get saved back &mdash; not the whole history again. That's the whole
+        reason <code>newMessages</code> exists as a separate field from <code>messages</code> (more on that in the state section below).</td></tr>
+      <tr><td>7</td><td><code>conversationService.touch(conversationId)</code></td>
+        <td>Updates <code>last_message_at</code> so an "active" conversation lookup in step 1 stays accurate over time.</td></tr>
+    </table></div>
+
+    <div class="callout">
+      <b>Why this file exists at all:</b> without it, <code>TelegramService</code> would need to know about Postgres rows,
+      LangChain message types, <em>and</em> the graph &mdash; three concerns tangled into one class. Instead, Telegram only ever
+      calls <code>aiChatService.chat({customerId, text})</code> and gets back <code>{response}</code>. If you later add a web chat
+      widget or a WhatsApp integration, they'd call this exact same method.
+    </div>
+  </div>
+</section>
+
+<section id="agent-layer">
+  <h2><span class="kicker">04</span>The agent layer &mdash; where the thinking happens</h2>
+  <p class="lede">This is a <span class="term">LangGraph</span> agent (a library for building an LLM app as an explicit
+  state machine: boxes that do work, called <span class="term">nodes</span>, connected by arrows that decide what runs next,
+  called <span class="term">edges</span> &mdash; instead of one long hand-written if/else chain). Ten files, three jobs between them.</p>
+
+  <h3>4.1 &mdash; The graph itself: how one turn actually loops</h3>
+  <p>Before reading any single file, look at the shape they all plug into. This is <code>booking.graph.ts</code>, drawn out:</p>
+
+  <div class="mermaid-box">
+  <pre class="mermaid">
+flowchart TD
+    START((START)) --> LLM["llm node<br/>(calls Groq)"]
+    LLM -- "response has tool_calls?" --> ROUTE{router.route}
+    ROUTE -- "yes → 'tool'" --> TOOL["tool node<br/>(runs registered tool)"]
+    ROUTE -- "no → '__end__'" --> END((END))
+    TOOL --> LLM
+  </pre>
+  </div>
+
+  <p>Read that loop out loud: the LLM speaks &rarr; the router checks if it asked to run a tool &rarr; if yes, the tool runs and
+  we go <em>back</em> to the LLM so it can react to the result &rarr; if no, we're done. A single user message can bounce through
+  <code>llm &rarr; tool &rarr; llm &rarr; tool &rarr; llm &rarr; END</code> as many times as the model needs before it has a real answer.</p>
+
+  <div class="file plumb">
+    <div class="file-head">
+      <span class="file-path">src/agent/graph/booking.graph.ts</span>
+      <span class="file-tag">graph definition</span>
+    </div>
+<pre><code>return new StateGraph(BookingState)
+  .addNode("llm", this.llm.execute.bind(this.llm))
+  .addNode("tool", this.tool.execute.bind(this.tool))
+  .addEdge(START, "llm")
+  .addConditionalEdges("llm", this.router.route.bind(this.router), {
+    tool: "tool",
+    __end__: END,
+  })
+  .addEdge("tool", "llm")
+  .compile();</code></pre>
+    <p>The in-file comment warns not to build this across separate statements on a mutable variable &mdash; LangGraph's
+    TypeScript types get more specific with every <code>.addNode()</code>/<code>.addEdge()</code> call, so the whole thing has to
+    be one chained expression or the compiler loses track of what state shape each node expects.</p>
+  </div>
+
+  <h3>4.2 &mdash; The shared memory: state</h3>
+  <div class="file plumb">
+    <div class="file-head">
+      <span class="file-path">src/agent/state/booking.state.ts</span>
+      <span class="file-tag">state schema</span>
+    </div>
+    <p><code>Annotation.Root({...})</code> defines the object that flows through every node. Each node only returns the
+    <em>fields it changed</em>; LangGraph merges that partial return into the running state using a <span class="term">reducer</span>
+    (a merge function: given the old value and the node's new value, decide what the state becomes next). Every reducer
+    here is <code>(_, right) =&gt; right</code>, meaning "the newest value always wins" &mdash; simplest possible reducer, no accumulation logic.</p>
+    <div class="table-wrap"><table>
+      <tr><th>field</th><th>what it's for</th></tr>
+      <tr><td><code>messages</code></td><td>The full running conversation this graph invocation sees &mdash; loaded once at the start, then rewritten by <code>llm</code>/<code>tool</code> nodes as they append to it.</td></tr>
+      <tr><td><code>newMessages</code></td><td>Only what <em>this run</em> produced. This is what <code>ai-chat.service.ts</code> persists &mdash; it never re-saves history that's already in Postgres.</td></tr>
+      <tr><td><code>toolResults</code></td><td>Declared as a slot for raw tool output, but not currently populated by <code>ToolNode</code> &mdash; today tool results live inside <code>messages</code> as <code>ToolMessage</code>s instead. Worth knowing this field is aspirational, not wired up yet.</td></tr>
+      <tr><td><code>response</code></td><td>The final text that eventually gets sent back to the Telegram user.</td></tr>
+    </table></div>
+  </div>
+
+  <h3>4.3 &mdash; The brain: LLM node, router, and the prompt</h3>
+
+  <div class="file brain">
+    <div class="file-head">
+      <span class="file-path">src/agent/nodes/llm.node.ts</span>
+      <span class="file-tag">LLM call</span>
+    </div>
+    <p>Every turn, this node prepends the <code>SYSTEM_PROMPT</code> (the persona and rules given to the model &mdash; "never invent
+    doctors," "always use tools for real data," etc.) to the message history, then calls the model through the
+    <code>AIProvider</code> abstraction (see 4.5).</p>
+<pre><code>const hasToolCalls = (response.tool_calls?.length ?? 0) > 0;
+return {
+  messages: [...state.messages, response],
+  newMessages: [...state.newMessages, response],
+  response: hasToolCalls ? state.response : response.text,
+};</code></pre>
+    <p>That last line is the subtle bit: <code>response</code> (the field the user eventually sees) is only overwritten when the
+    model did <em>not</em> ask for a tool call. If it did, we keep whatever was there before &mdash; because this turn's "answer" is
+    really just "please run this tool for me," not something to show the user yet.</p>
+  </div>
+
+  <div class="file brain">
+    <div class="file-head">
+      <span class="file-path">src/agent/nodes/router.node.ts</span>
+      <span class="file-tag">pure decision</span>
+    </div>
+    <p>The smallest file in the folder, and deliberately so &mdash; it makes exactly one decision and has no side effects
+    (calls no database, no network, nothing "impure"): is the last message an <code>AIMessage</code> with at least one
+    <code>tool_calls</code> entry? If yes &rarr; <code>"tool"</code>. Otherwise &rarr; <code>"__end__"</code>. This return value is literally
+    the key LangGraph uses to pick the next node in the conditional edge map you saw in <code>booking.graph.ts</code>.</p>
+  </div>
+
+  <div class="file brain">
+    <div class="file-head">
+      <span class="file-path">src/agent/prompts/system.prompt.ts</span>
+      <span class="file-tag">persona &amp; rules</span>
+    </div>
+    <p>A single <code>SystemMessage</code> (LangChain's wrapper for "instructions the model should treat as ground rules, not
+    part of the conversation"). This is the one file you'd edit to change the assistant's tone, or to add a new rule like
+    "always confirm the appointment time back to the user before calling <code>createBooking</code>."</p>
+  </div>
+
+  <h3>4.4 &mdash; The hands: tools, the registry, and the adapter</h3>
+
+  <div class="file hands">
+    <div class="file-head">
+      <span class="file-path">src/agent/nodes/tool.node.ts</span>
+      <span class="file-tag">tool executor</span>
+    </div>
+    <p>When the router sends us here, this node reads <code>tool_calls</code> off the last AI message &mdash; there can be more
+    than one, since a single model turn can ask to run several tools at once &mdash; and for each one:</p>
+<pre><code>const tool = this.registry.get(toolCall.name);
+if (!tool) throw new Error(`Unknown tool: ${toolCall.name}`);
+
+const result = await tool.execute(toolCall.args);
+
+toolMessages.push(new ToolMessage({
+  tool_call_id: toolCall.id,
+  content: JSON.stringify(result),
+}));</code></pre>
+    <p><code>tool_call_id</code> is what lets the model later match "the result I'm reading" back to "the specific call I asked
+    for" &mdash; important once more than one tool call happens in the same turn. Notice <code>ToolNode</code> never imports
+    <code>SearchDoctorTool</code> or any concrete tool class directly &mdash; it only knows the <code>ToolRegistry</code>. That indirection
+    is deliberate, covered next.</p>
+    <div class="callout">
+      <b>If you forget to register a tool,</b> this is where it explodes at runtime with <code>Unknown tool: yourToolName</code> &mdash;
+      not at compile time. Keep that in mind once you start adding <code>createBooking</code>.
+    </div>
+  </div>
+
+  <div class="file hands">
+    <div class="file-head">
+      <span class="file-path">src/agent/registry/tool.registry.ts</span>
+      <span class="file-tag">phone book</span>
+    </div>
+    <p>A thin wrapper around <code>Map&lt;string, AgentTool&gt;</code> with <code>register()</code>, <code>get()</code>, <code>has()</code>,
+    <code>getAll()</code>. The in-file comment diagrams the intent well:</p>
+<pre><code>ToolNode
+     ↓
+ToolRegistry
+     ↓
+SearchDoctorTool
+     ↓
+BookingService</code></pre>
+    <p>This is the <span class="term">Dependency Inversion Principle</span> in practice: <code>ToolNode</code> depends only on the
+    abstract idea of "a tool with a name," never on a concrete class. New tool &rarr; register it in one place
+    (<code>agent.bootstrap.ts</code>) &rarr; nothing in <code>graph/</code> or <code>nodes/</code> needs to change.</p>
+  </div>
+
+  <div class="file hands">
+    <div class="file-head">
+      <span class="file-path">src/agent/tools/agent-tools.ts</span>
+      <span class="file-tag">tool contract</span>
+    </div>
+    <p>The <code>AgentTool</code> interface every tool implements: <code>name</code>, <code>description</code> (sent to the model so it
+    knows when to reach for this tool), <code>schema</code> (a <span class="term">Zod</span> schema &mdash; Zod is a runtime validation
+    library; here it doubles as the definition of what arguments the model is allowed to pass), and <code>execute(input)</code>.</p>
+  </div>
+
+  <div class="file hands">
+    <div class="file-head">
+      <span class="file-path">src/agent/tools/searchDoctor.tool.ts</span>
+      <span class="file-tag">working example</span>
+    </div>
+<pre><code>export class SearchDoctorTool implements AgentTool&lt;SearchDoctorToolInput&gt; {
+  readonly name = "searchDoctor";
+  readonly description = "Search doctors by doctor name or specialization.";
+  readonly schema = z.object({ keyword: z.string().optional() });
+
+  constructor(private readonly doctorService: DoctorService) {}
+
+  execute(input: SearchDoctorToolInput) {
+    return this.doctorService.searchDoctors(input);
+  }
+}</code></pre>
+    <p>This is the template to copy. Notice <code>execute()</code> does <em>no</em> SQL and no business logic of its own &mdash; it just
+    forwards to <code>DoctorService</code>. The rule stated in <code>agent-tools.ts</code>'s own doc comment: <em>"The tool should
+    never contain SQL. It delegates to Services."</em> A tool's only job is translating between "what the LLM is allowed to
+    ask for" and "the service method that actually does it."</p>
+  </div>
+
+  <div class="file stub">
+    <div class="file-head">
+      <span class="file-path">checkAvailability.tool.ts &middot; createBooking.tool.ts &middot; cancelBooking.tool.ts</span>
+      <span class="file-tag">empty stubs</span>
+    </div>
+    <p>All three exist as empty files today. So do <code>booking.service.ts</code>, <code>booking.repository.ts</code>, and
+    <code>booking.types.ts</code> in <code>src/booking/</code>. This is the actual next milestone &mdash; Section 5 below walks through
+    exactly how <code>createBooking</code> would slot into everything you just read.</p>
+  </div>
+
+  <div class="file hands">
+    <div class="file-head">
+      <span class="file-path">src/agent/adapters/langchain-tool.adapter.ts</span>
+      <span class="file-tag">format converter</span>
+    </div>
+    <p><code>toLangChainTools()</code> takes our internal <code>AgentTool[]</code> and wraps each one with LangChain's own
+    <code>tool()</code> factory function &mdash; the exact shape <code>ChatGroq</code>'s <code>.bindTools()</code> expects
+    (<span class="term">function calling</span>/<span class="term">tool calling</span>: the mechanism by which an LLM API lets
+    the model "ask" your code to run a named function with structured arguments, instead of only returning free text).
+    Our own <code>AgentTool</code> interface never has to know LangChain exists &mdash; this adapter is the only file that
+    bridges the two.</p>
+  </div>
+
+  <h3>4.5 &mdash; Swappable model access: the provider abstraction</h3>
+
+  <div class="file brain">
+    <div class="file-head">
+      <span class="file-path">src/agent/providers/ai-provider.ts</span>
+      <span class="file-tag">interface</span>
+    </div>
+<pre><code>export interface AIProvider {
+  invoke(messages: BaseMessage[]): Promise&lt;AIMessage&gt;;
+}</code></pre>
+    <p>One method. That's the entire contract <code>LLMNode</code> depends on.</p>
+  </div>
+
+  <div class="file brain">
+    <div class="file-head">
+      <span class="file-path">src/agent/providers/groq.provider.ts</span>
+      <span class="file-tag">Groq implementation</span>
+    </div>
+    <p>The file's own header comment says it plainly: <em>"The rest of the application never imports ChatGroq. Only this
+    file knows Groq exists."</em> (Groq is the LLM hosting service this project currently calls; a <span class="term">Runnable</span>
+    is LangChain's umbrella type for "anything invokable with <code>.invoke()</code>" &mdash; here, a chat model that already has
+    tools bound to it via <code>bindTools()</code>, built in <code>agent.bootstrap.ts</code>.) Swapping to OpenAI or Anthropic later
+    means writing a new file next to this one and changing one line in the bootstrap &mdash; nothing else in <code>agent/</code> changes.</p>
+  </div>
+
+  <h3>4.6 &mdash; Translating between Postgres rows and LangChain messages</h3>
+  <div class="file plumb">
+    <div class="file-head">
+      <span class="file-path">src/agent/utils/message.mapper.ts</span>
+      <span class="file-tag">DB ⇄ LangChain</span>
+    </div>
+    <p>Two directions, both used by <code>ai-chat.service.ts</code>:</p>
+    <ul>
+      <li><code>toLangChainMessages(dbRows)</code> &mdash; turns <code>{role: "user"|"assistant"|"tool", content}</code> rows into
+      <code>HumanMessage</code>/<code>AIMessage</code>/<code>ToolMessage</code> instances the graph can work with.</li>
+      <li><code>toDatabaseMessage(s)</code> &mdash; the reverse, turning LangChain message instances back into plain rows to insert.</li>
+    </ul>
+    <p><code>extractContent()</code> exists because LangChain's <code>content</code> field isn't always a plain string &mdash; some
+    providers can return structured content (arrays of content blocks). This helper safely coerces it to a string before
+    it's stored in a text column.</p>
+  </div>
+
+  <h3>4.7 &mdash; The front door: AgentService</h3>
+  <div class="file plumb">
+    <div class="file-head">
+      <span class="file-path">src/agent/service/agent.service.ts</span>
+      <span class="file-tag">facade</span>
+    </div>
+<pre><code>export class AgentService {
+  private readonly graph;
+  constructor(bookingGraph: BookingGraph) {
+    this.graph = bookingGraph.build();
+  }
+  invoke(state: BookingAgentState) {
+    return this.graph.invoke({ ...state, newMessages: [] });
+  }
+}</code></pre>
+    <p>This is a <span class="term">facade</span> (a design pattern: a small class whose only job is to hide a more
+    complicated subsystem behind a simple front door). Everything you read above &mdash; the graph, the nodes, the registry,
+    the provider &mdash; is invisible to <code>ai-chat.service.ts</code>. It only ever sees <code>agentService.invoke(state)</code>.
+    Note it resets <code>newMessages</code> to <code>[]</code> right before invoking, guaranteeing each run starts counting its
+    "new" output from zero, regardless of what the caller passed in.</p>
+  </div>
+
+  <h3>4.8 &mdash; Where it's all assembled: the bootstrap</h3>
+  <div class="file plumb">
+    <div class="file-head">
+      <span class="file-path">src/bootstrap/agent.bootstrap.ts</span>
+      <span class="file-tag">composition root</span>
+    </div>
+    <p>This is the file that actually <code>new</code>'s everything up and wires it together &mdash; sometimes called the
+    <span class="term">composition root</span> (the one place in an app where concrete objects get constructed and handed
+    to each other, so the rest of the codebase can stay decoupled and just depend on interfaces). Read top to bottom, it is
+    literally the assembly order:</p>
+<pre><code>const doctorRepository = new DoctorRepository();
+const doctorService = new DoctorService(doctorRepository);
+
+const registry = new ToolRegistry();
+registry.register(new SearchDoctorTool(doctorService));
+
+const langchainTools = toLangChainTools(registry.getAll());
+
+const chat = new ChatGroq({ apiKey: ..., model: ..., temperature: 0 });
+const provider = new GroqProvider(chat.bindTools(langchainTools));
+
+const llmNode = new LLMNode(provider);
+const routerNode = new RouterNode();
+const toolNode = new ToolNode(registry);
+
+const graph = new BookingGraph(llmNode, routerNode, toolNode);
+return new AgentService(graph);</code></pre>
+    <p>This function runs once, at import time (<code>export const agent = createAgent();</code> at the bottom of the file),
+    triggered indirectly the moment <code>telegram.bootstrap.ts</code> imports it &mdash; which happens because
+    <code>telegram.routes.ts</code> imports <code>telegram.bootstrap.ts</code>, which is imported by <code>routes/index.ts</code>,
+    which <code>app.ts</code> mounts on startup. One <code>agent</code> singleton, built once, reused for every message.</p>
+  </div>
+</section>
+
+<section id="add-a-tool">
+  <h2><span class="kicker">05</span>Adding your next tool: a worked checklist</h2>
+  <p class="lede">Using <code>createBooking</code> as the running example, since it's one of the three empty stubs waiting for you.</p>
+  <ol class="checklist">
+    <li><strong>Build the real logic first, with no AI involved.</strong> Fill in <code>booking.types.ts</code>
+      (a <code>Booking</code> shape and a <code>CreateBooking</code> input shape), <code>booking.repository.ts</code>
+      (the SQL &mdash; insert a row into whatever <code>bookings</code> table exists), and <code>booking.service.ts</code>
+      (validation like "is this slot still free" before calling the repository). Model these three files after
+      <code>doctor.repository.ts</code>/<code>doctor.service.ts</code>, which you already have working examples of.</li>
+    <li><strong>Write the tool class</strong> in <code>createBooking.tool.ts</code>, implementing <code>AgentTool</code> exactly like
+      <code>SearchDoctorTool</code> does: pick a <code>name</code> the model will call (e.g. <code>"createBooking"</code>), write a
+      <code>description</code> clear enough that the model knows when to use it, define a Zod <code>schema</code> for the arguments
+      (doctor id, date, time, customer id&hellip;), and have <code>execute()</code> call straight into <code>BookingService</code> &mdash;
+      no SQL in this file.</li>
+    <li><strong>Register it</strong> in <code>agent.bootstrap.ts</code>: construct <code>BookingRepository</code>/<code>BookingService</code>
+      next to the doctor ones, then add one line: <code>registry.register(new CreateBookingTool(bookingService));</code>.
+      That's the only file that needs to change to make a new tool available &mdash; the graph, nodes, and registry code never
+      change.</li>
+    <li><strong>Update the system prompt</strong> if the model needs new rules &mdash; e.g. "always confirm date, time, and doctor
+      name back to the user before calling <code>createBooking</code>," so it doesn't book something the user didn't actually
+      confirm.</li>
+    <li><strong>Test it in isolation first</strong>, without touching Telegram or the database round-trip, using
+      <code>npm run test:agent</code> (<code>src/scripts/test-agent.ts</code>) &mdash; edit the hardcoded prompt in that file to something
+      like <code>"Book me with Dr. Smith tomorrow at 10am"</code> and watch the console logs <code>llm.node.ts</code> and
+      <code>tool.node.ts</code> already print for every step.</li>
+  </ol>
+  <div class="callout next">
+    <b>Don't forget:</b> if <code>createBooking</code> needs to check availability first, that's exactly what
+    <code>checkAvailability.tool.ts</code> is for &mdash; you may end up building two tools and letting the model decide to call
+    <code>checkAvailability</code> before <code>createBooking</code> on its own, across one <code>llm &rarr; tool &rarr; llm &rarr; tool &rarr; llm</code>
+    loop, rather than hard-coding that sequence yourself. That's the entire point of the graph looping back to <code>llm</code>
+    after every tool call.
+  </div>
+</section>
+
+<section id="glossary">
+  <h2><span class="kicker">—</span>Glossary, for quick lookup</h2>
+  <dl class="glossary">
+    <dt>Webhook</dt>
+    <dd>A URL you give to a third-party service (here, Telegram) so it can push events to you the moment they happen, instead of you having to poll and ask "anything new?" on a timer.</dd>
+    <dt>Constructor injection</dt>
+    <dd>Passing a class's dependencies in through its constructor rather than having it create them internally, so callers control what implementation it gets (real service, test double, different provider, etc).</dd>
+    <dt>Node / edge (LangGraph)</dt>
+    <dd>A node is a function that receives the current state and returns the parts of it that changed; an edge decides which node runs next. A "conditional edge" picks the next node based on a function's return value at runtime.</dd>
+    <dt>Reducer (state)</dt>
+    <dd>The merge function LangGraph calls to combine a state field's old value with what a node just returned for it. Every reducer in this project simply replaces the old value with the new one.</dd>
+    <dt>Tool calling / function calling</dt>
+    <dd>An LLM API feature where, instead of only returning text, the model can return a structured request to run one of the functions you described to it, along with arguments matching a schema you provided.</dd>
+    <dt>Zod schema</dt>
+    <dd>A runtime validation library. Here it's dual-purpose: it validates a tool's input at runtime, and its shape is also translated into the argument definition the LLM sees for that tool.</dd>
+    <dt>Facade (pattern)</dt>
+    <dd>A class that exposes one simple method to hide a more complex subsystem behind it &mdash; <code>AgentService.invoke()</code> hides the entire LangGraph graph from its caller.</dd>
+    <dt>Dependency Inversion</dt>
+    <dd>Depending on an abstraction (like the <code>AgentTool</code> interface or the <code>ToolRegistry</code>) instead of a concrete class, so new implementations can be added without changing the code that uses them.</dd>
+    <dt>Composition root</dt>
+    <dd>The one place in the app (<code>agent.bootstrap.ts</code> / <code>telegram.bootstrap.ts</code>) where concrete objects are actually constructed and wired together with <code>new</code>, so everywhere else can just depend on interfaces.</dd>
+  </dl>
+</section>
+
+<footer>
+  Generated as a reading guide over the current state of <code>src/telegram/</code>, <code>src/ai/</code>, and <code>src/agent/</code>.
+  File paths are clickable in your editor's file explorer &mdash; open them side by side with this page.
+</footer>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "neutral",
+    securityLevel: "loose",
+  });
+</script>

@@ -5,14 +5,12 @@ import {
   ToolMessage,
 } from "@langchain/core/messages";
 
-import {
-  CreateMessage,
-  Message,
-  MessageRole,
-} from "../../message/message.types";
+import { CreateMessage, Message } from "../../message/message.types";
 
 /**
+ * -------------------------
  * Database -> LangChain
+ * -------------------------
  */
 export function toLangChainMessages(messages: Message[]): BaseMessage[] {
   return messages.map((message) => {
@@ -21,7 +19,9 @@ export function toLangChainMessages(messages: Message[]): BaseMessage[] {
         return new HumanMessage(message.content);
 
       case "assistant":
-        return new AIMessage(message.content);
+        return new AIMessage({
+          content: message.content,
+        });
 
       case "tool":
         return new ToolMessage({
@@ -36,7 +36,9 @@ export function toLangChainMessages(messages: Message[]): BaseMessage[] {
 }
 
 /**
+ * -------------------------
  * LangChain -> Database
+ * -------------------------
  */
 export function toDatabaseMessage(
   conversationId: string,
@@ -64,6 +66,10 @@ export function toDatabaseMessage(
       conversationId,
       role: "assistant",
       content: extractContent(message),
+
+      // <-- preserve first tool call information
+      toolCallId: message.tool_calls?.[0]?.id,
+      toolName: message.tool_calls?.[0]?.name,
     };
   }
 
@@ -74,12 +80,9 @@ export function toDatabaseMessages(
   conversationId: string,
   messages: BaseMessage[],
 ): CreateMessage[] {
-  return messages.map((message) => toDatabaseMessage(conversationId, message));
+  return messages.map((m) => toDatabaseMessage(conversationId, m));
 }
 
-/**
- * Safely converts LangChain content into string.
- */
 export function extractContent(message: BaseMessage): string {
   if (typeof message.content === "string") {
     return message.content;
