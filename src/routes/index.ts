@@ -8,6 +8,6 @@ router.get("/", (_, res) => {
   res.send("AI Booking Platform");
 });
 
-router.use("/telegram", telegramRoutes);
+router.use("/v1/webhook", telegramRoutes);
 
 export default router;

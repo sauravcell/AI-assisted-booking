@@ -4,6 +4,6 @@ import { telegramController } from "../bootstrap/telegram.bootstrap";
 
 const router = Router();
 
-router.post("/webhook", telegramController.handleWebhook);
+router.post("/telegram", telegramController.handleWebhook);
 
 export default router;

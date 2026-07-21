@@ -6,7 +6,6 @@ import { CustomerService } from "../customer/customer.service";
 import { AIChatService } from "../ai/ai-chat.service";
 
 import { TelegramMessage, TelegramUpdate } from "./telegram.types";
-
 export class TelegramService {
   private readonly apiUrl: string;
 
