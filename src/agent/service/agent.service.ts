@@ -15,7 +15,10 @@ export class AgentService {
   }
 
   invoke(state: BookingAgentState) {
-    return this.graph.invoke(state);
+    return this.graph.invoke({
+      ...state,
+      newMessages: [],
+    });
   }
 }
 /*

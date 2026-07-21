@@ -19,7 +19,6 @@ async function bootstrap() {
     app.listen(config.PORT, () => {
       logger.info(`Server running on port ${config.PORT}`);
     });
-    await testGroqProvider();
   } catch (error) {
     logger.error(error);
 

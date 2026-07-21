@@ -20,6 +20,7 @@ export class LLMNode {
 
     return {
       messages: [...state.messages, response],
+      newMessages: [...state.newMessages, response],
       response: hasToolCalls ? state.response : response.text,
     };
   }

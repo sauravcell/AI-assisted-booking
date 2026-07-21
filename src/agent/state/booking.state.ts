@@ -13,6 +13,15 @@ export const BookingState = Annotation.Root({
   }),
 
   /**
+   * Messages generated during
+   * the current graph execution.
+   */
+  newMessages: Annotation<BaseMessage[]>({
+    reducer: (_, value) => value,
+    default: () => [],
+  }),
+
+  /**
    * Results returned by tool executions.
    *
    * Example:

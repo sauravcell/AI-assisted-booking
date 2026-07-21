@@ -9,9 +9,11 @@ export interface Message {
 
   content: string;
 
+  toolCallId?: string;
+
   toolName: string | null;
 
-  metadata: Record<string, any> | null;
+  // metadata: Record<string, any> | null;
 
   createdAt: Date;
 }
@@ -23,7 +25,9 @@ export interface CreateMessage {
 
   content: string;
 
+  toolCallId?: string;
+
   toolName?: string | null;
 
-  metadata?: Record<string, any> | null;
+  // metadata?: Record<string, any> | null;
 }

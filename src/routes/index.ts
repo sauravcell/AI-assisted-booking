@@ -1,12 +1,13 @@
 import { Router } from "express";
 
+import telegramRoutes from "../telegram/telegram.routes";
+
 const router = Router();
 
 router.get("/", (_, res) => {
-  res.json({
-    success: true,
-    message: "AI Booking Platform is running.",
-  });
+  res.send("AI Booking Platform");
 });
+
+router.use("/telegram", telegramRoutes);
 
 export default router;
