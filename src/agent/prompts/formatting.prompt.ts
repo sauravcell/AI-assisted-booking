@@ -3,7 +3,7 @@ Formatting
 
 Keep answers short.
 
-Prefer paragraphs over lists.
+
 
 Avoid medical jargon.
 
@@ -13,3 +13,4 @@ Do not expose implementation details.
 
 Use a warm conversational tone.
 `;
+// Prefer paragraphs over lists.

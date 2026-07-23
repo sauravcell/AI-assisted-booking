@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Beyond Booking — A Reusable Pattern for AI That Takes Real Action</title>
+<style>
+  :root {
+    --bg: #eef1f3;
+    --surface: #ffffff;
+    --surface-2: #e4e9ec;
+    --ink: #12181f;
+    --ink-muted: #4b5964;
+    --ink-faint: #7c8a93;
+    --line: #d7dee2;
+    --accent: #0e7c86;
+    --accent-soft: #dcefef;
+    --accent2: #a5680b;
+    --accent2-soft: #f4e7d3;
+    --font-display: "Iowan Old Style", "Palatino Linotype", Charter, Georgia, serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --radius: 7px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1116; --surface: #121a21; --surface-2: #182129;
+      --ink: #e8edef; --ink-muted: #a6b4bc; --ink-faint: #71828b;
+      --line: #22303a; --accent: #52d3dd; --accent-soft: #12333537;
+      --accent2: #e0a458; --accent2-soft: #3a2c1633;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b1116; --surface: #121a21; --surface-2: #182129;
+    --ink: #e8edef; --ink-muted: #a6b4bc; --ink-faint: #71828b;
+    --line: #22303a; --accent: #52d3dd; --accent-soft: #12333537;
+    --accent2: #e0a458; --accent2-soft: #3a2c1633;
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --bg: #eef1f3; --surface: #ffffff; --surface-2: #e4e9ec;
+    --ink: #12181f; --ink-muted: #4b5964; --ink-faint: #7c8a93;
+    --line: #d7dee2; --accent: #0e7c86; --accent-soft: #dcefef;
+    --accent2: #a5680b; --accent2-soft: #f4e7d3;
+    color-scheme: light;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--accent-soft); }
+  a { color: var(--accent); text-decoration-thickness: 1px; }
+  code { font-family: var(--font-mono); font-size: 0.92em; background: var(--surface-2); padding: 1px 6px; border-radius: 4px; }
+
+  .page {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 760px);
+    justify-content: center;
+    gap: 56px;
+    padding: 64px 32px 120px;
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+  @media (max-width: 900px) {
+    .page { grid-template-columns: minmax(0, 1fr); padding: 40px 20px 100px; }
+    nav.toc { display: none; }
+  }
+
+  nav.toc { position: sticky; top: 48px; align-self: start; font-size: 13px; }
+  nav.toc .label {
+    font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-faint); font-size: 11px; margin-bottom: 14px;
+  }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; border-left: 1px solid var(--line); }
+  nav.toc a {
+    display: block; padding: 6px 0 6px 16px; margin-left: -1px;
+    border-left: 1px solid transparent; color: var(--ink-muted); text-decoration: none; line-height: 1.4;
+  }
+  nav.toc a:hover { color: var(--ink); border-left-color: var(--ink-faint); }
+
+  header.doc-head { margin-bottom: 56px; padding-bottom: 28px; border-bottom: 1px solid var(--line); }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.09em;
+    text-transform: uppercase; color: var(--accent); margin: 0 0 14px;
+  }
+  h1.doc-title {
+    font-family: var(--font-display); font-weight: 500; font-size: 38px; line-height: 1.16;
+    letter-spacing: -0.01em; margin: 0 0 14px; text-wrap: balance;
+  }
+  .doc-sub { font-size: 17px; color: var(--ink-muted); max-width: 60ch; line-height: 1.55; margin: 0 0 22px; }
+  .meta-strip { display: flex; flex-wrap: wrap; gap: 8px 22px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
+  .meta-strip span b { color: var(--ink-muted); font-weight: 600; }
+
+  main section { margin-bottom: 58px; }
+  h2 {
+    font-family: var(--font-display); font-size: 25px; font-weight: 500; letter-spacing: -0.005em;
+    margin: 0 0 6px; text-wrap: balance; scroll-margin-top: 40px;
+  }
+  h2 .n { font-family: var(--font-mono); font-size: 14px; color: var(--ink-faint); font-weight: 400; margin-right: 10px; }
+  h3 { font-family: var(--font-body); font-size: 16px; font-weight: 700; margin: 26px 0 10px; color: var(--ink); }
+  p { line-height: 1.7; font-size: 15.5px; color: var(--ink); max-width: 68ch; }
+  p.lead { font-size: 17.5px; color: var(--ink-muted); }
+  ul, ol { line-height: 1.7; font-size: 15.5px; padding-left: 22px; max-width: 66ch; }
+  li { margin-bottom: 6px; }
+  strong { font-weight: 650; }
+  .accent-a { color: var(--accent); font-weight: 600; }
+  .accent-b { color: var(--accent2); font-weight: 600; }
+
+  .box {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 20px 24px; margin: 20px 0;
+  }
+  .callout {
+    border-left: 3px solid var(--accent2); background: var(--accent2-soft);
+    border-radius: 0 var(--radius) var(--radius) 0; padding: 14px 20px; margin: 20px 0;
+    font-size: 14.5px; color: var(--ink);
+  }
+  .callout b { color: var(--accent2); }
+
+  .pull {
+    font-family: var(--font-display);
+    font-size: 22px;
+    line-height: 1.4;
+    color: var(--ink);
+    max-width: 56ch;
+    margin: 28px 0;
+    padding-left: 20px;
+    border-left: 2px solid var(--accent);
+    text-wrap: balance;
+  }
+
+  /* ---------- diagrams ---------- */
+  .diagram-wrap {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 22px; margin: 22px 0; overflow-x: auto;
+  }
+  .diagram-wrap .cap {
+    font-family: var(--font-mono); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--ink-faint); margin-bottom: 16px;
+  }
+  .pipeline { display: flex; align-items: center; flex-wrap: wrap; row-gap: 14px; }
+  .pnode {
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px;
+    padding: 12px 15px; min-width: 128px; display: flex; flex-direction: column; gap: 3px;
+  }
+  .pnode .t { font-size: 13px; font-weight: 650; color: var(--ink); }
+  .pnode .s { font-size: 11.5px; color: var(--ink-faint); line-height: 1.4; }
+  .pnode.accent { border-color: var(--accent); background: var(--accent-soft); }
+  .pnode.accent .t { color: var(--accent); }
+  .pnode.db { border-color: var(--accent2); background: var(--accent2-soft); }
+  .pnode.db .t { color: var(--accent2); }
+  .arrow-h, .arrow-v { color: var(--ink-faint); font-size: 18px; flex: 0 0 auto; padding: 0 8px; }
+  .arrow-v { display: none; width: 100%; text-align: center; padding: 0; }
+  .branch-note { margin-top: 16px; font-size: 13px; color: var(--ink-muted); max-width: 66ch; }
+  .branch-note b { color: var(--ink); }
+  @media (max-width: 640px) {
+    .pipeline { flex-direction: column; align-items: stretch; }
+    .pipeline .arrow-h { display: none; }
+    .pipeline .arrow-v { display: block; }
+    .pnode { min-width: 0; }
+  }
+
+  /* ---------- example cards ---------- */
+  .example-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin: 22px 0;
+  }
+  @media (max-width: 720px) { .example-grid { grid-template-columns: 1fr; } }
+  .example-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 18px 20px;
+  }
+  .example-card .tag {
+    font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--accent); margin-bottom: 8px;
+  }
+  .example-card h4 { margin: 0 0 10px; font-size: 16px; font-family: var(--font-display); font-weight: 600; }
+  .example-card .row { margin-bottom: 8px; font-size: 13.5px; line-height: 1.55; }
+  .example-card .row b { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-faint); font-weight: 600; margin-bottom: 2px; }
+  .example-card .row.change b { color: var(--accent); }
+  .example-card .row p { margin: 0; font-size: 13.5px; max-width: none; }
+
+  /* ---------- steps ---------- */
+  .steps { counter-reset: step; list-style: none; padding: 0; margin: 22px 0; }
+  .steps li {
+    counter-increment: step; position: relative; padding: 2px 0 22px 40px;
+    border-left: 1px solid var(--line); margin-left: 13px; max-width: 66ch;
+  }
+  .steps li:last-child { border-left-color: transparent; padding-bottom: 0; }
+  .steps li::before {
+    content: counter(step); position: absolute; left: -13px; top: 0;
+    width: 26px; height: 26px; border-radius: 50%; background: var(--surface);
+    border: 1px solid var(--accent); color: var(--accent); font-family: var(--font-mono);
+    font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  }
+  .steps h4 { margin: 2px 0 6px; font-size: 15px; }
+  .steps p { margin: 0; font-size: 14.5px; color: var(--ink-muted); }
+
+  footer.doc-foot {
+    margin-top: 70px; padding-top: 24px; border-top: 1px solid var(--line);
+    font-size: 13px; color: var(--ink-faint);
+  }
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+  html { scroll-behavior: smooth; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <nav class="toc" aria-label="Table of contents">
+    <div class="label">Contents</div>
+    <ol>
+      <li><a href="#what-we-built">What we actually built</a></li>
+      <li><a href="#idea">The idea underneath it</a></li>
+      <li><a href="#why-generalizes">Why this generalizes</a></li>
+      <li><a href="#elsewhere">Where else it could work</a></li>
+      <li><a href="#standing-up">Standing up a new one</a></li>
+      <li><a href="#closing">The bigger question</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="doc-head">
+      <p class="eyebrow">For Leadership — Internal</p>
+      <h1 class="doc-title">Beyond Booking: A Reusable Pattern for AI That Takes Real Action</h1>
+      <p class="doc-sub">
+        What we built for patient scheduling turned out to be more than a booking tool. It's a
+        blueprint for letting AI safely act inside a business process — one we can point at other
+        parts of the business.
+      </p>
+      <div class="meta-strip">
+        <span><b>Purpose</b> — introduce the pattern, not just the project</span>
+        <span><b>Case in point</b> — the AI booking assistant</span>
+      </div>
+    </header>
+
+    <section id="what-we-built">
+      <h2><span class="n">01</span>What we actually built</h2>
+      <p class="lead">
+        A patient messages the clinic on Telegram, the same way they'd text a friend. No forms, no
+        hold music, no waiting for office hours.
+      </p>
+      <p>
+        They might write "I need a cardiologist" or "cancel my appointment with Dr. Sarah." The
+        assistant understands what they're asking for, checks real, current appointment data, and —
+        when everything checks out — actually books or cancels the visit in the clinic's own systems.
+        Not a chatbot that answers questions about hours and directions. One that does the thing.
+      </p>
+      <div class="pull">
+        The interesting part isn't that it books appointments. It's <em>how</em> it's allowed to —
+        safely, predictably, and in a way that has nothing specifically to do with medicine.
+      </div>
+    </section>
+
+    <section id="idea">
+      <h2><span class="n">02</span>The idea underneath it</h2>
+      <p class="lead">Strip away the medical specifics and the same five-stage shape is left.</p>
+      <div class="diagram-wrap">
+        <div class="cap">The reusable pattern</div>
+        <div class="pipeline">
+          <div class="pnode"><span class="t">Channel</span><span class="s">wherever the customer already is</span></div>
+          <span class="arrow-h">&rarr;</span><span class="arrow-v">&darr;</span>
+          <div class="pnode accent"><span class="t">Understand</span><span class="s">AI reads what they actually want</span></div>
+          <span class="arrow-h">&rarr;</span><span class="arrow-v">&darr;</span>
+          <div class="pnode accent"><span class="t">Approved actions</span><span class="s">a short, fixed list — nothing more</span></div>
+          <span class="arrow-h">&rarr;</span><span class="arrow-v">&darr;</span>
+          <div class="pnode db"><span class="t">Systems of record</span><span class="s">where the action actually happens</span></div>
+          <span class="arrow-h">&rarr;</span><span class="arrow-v">&darr;</span>
+          <div class="pnode"><span class="t">Reply</span><span class="s">plain language, back on the same channel</span></div>
+        </div>
+        <p class="branch-note">
+          In the booking assistant: Telegram is the channel, the four things it can do are
+          <i>search doctors, check availability, book, cancel</i>, and the system of record is the
+          clinic's own appointment database. Everything else — the industry, the actions, the
+          systems behind them — is just what gets swapped in.
+        </p>
+      </div>
+      <p>
+        The one non-negotiable piece is the middle: <strong>approved actions.</strong> The AI is
+        never given free rein over a database or a business system. It's given a short, explicitly
+        reviewed list of things it's allowed to ask for — and nothing outside that list is possible,
+        no matter how the conversation goes.
+      </p>
+    </section>
+
+    <section id="why-generalizes">
+      <h2><span class="n">03</span>Why this generalizes</h2>
+      <div class="box">
+        <ul>
+          <li><strong>The channel doesn't matter.</strong> Telegram today; it could just as easily be WhatsApp, a website chat widget, or a phone call tomorrow — none of that touches how the actions or the business logic work.</li>
+          <li><strong>Every business already has its own short list of "approved actions."</strong> Check a reservation, look up an order, start a return, submit a request. Naming that list is most of the design work — and it's a business conversation, not a technical one.</li>
+          <li><strong>Trust is engineered in, not hoped for.</strong> The assistant can't invent information, can't act on someone else's behalf, and can't claim something succeeded unless the real system confirms it did.</li>
+          <li><strong>Changing the AI itself is a small, contained change.</strong> Swapping which AI vendor powers the "Understand" step doesn't require touching the approved actions or the systems of record behind them.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="elsewhere">
+      <h2><span class="n">04</span>Where else this pattern could work</h2>
+      <p class="lead">A few places the same shape maps cleanly onto very different businesses.</p>
+      <div class="example-grid">
+        <div class="example-card">
+          <div class="tag">Hospitality</div>
+          <h4>Restaurant reservations &amp; waitlist</h4>
+          <div class="row"><b>Friction today</b><p>Phone tag during service hours, overbooked tables, no-shows nobody catches in time.</p></div>
+          <div class="row change"><b>What changes</b><p>Guests text to book, join a waitlist, or change a party size — any hour, no host needed to pick up.</p></div>
+        </div>
+        <div class="example-card">
+          <div class="tag">Real Estate</div>
+          <h4>Viewing scheduling &amp; lead intake</h4>
+          <div class="row"><b>Friction today</b><p>Agents spend hours coordinating viewing times across multiple interested buyers and their own calendars.</p></div>
+          <div class="row change"><b>What changes</b><p>Interested buyers message directly, the assistant checks the agent's real open slots and books the viewing.</p></div>
+        </div>
+        <div class="example-card">
+          <div class="tag">Retail</div>
+          <h4>Order status &amp; returns</h4>
+          <div class="row"><b>Friction today</b><p>"Where's my order?" and "how do I return this?" make up most support volume, at real staffing cost.</p></div>
+          <div class="row change"><b>What changes</b><p>Customers get an instant, accurate answer pulled from the real order system, or start a return on the spot.</p></div>
+        </div>
+        <div class="example-card">
+          <div class="tag">Internal Ops</div>
+          <h4>Employee HR / IT requests</h4>
+          <div class="row"><b>Friction today</b><p>Time-off requests and access tickets sit in inboxes waiting for someone to process the paperwork.</p></div>
+          <div class="row change"><b>What changes</b><p>Staff message a request in plain language; approved ones are logged directly into the real HR/IT system.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="standing-up">
+      <h2><span class="n">05</span>What it takes to stand up a new one</h2>
+      <p class="lead">The same four moves, regardless of which business line it's for.</p>
+      <ol class="steps">
+        <li><h4>Name the short list of approved actions</h4><p>What, exactly, should this assistant be allowed to do? Usually four to six clear actions — this is a business decision, worked out with the people who run that process today.</p></li>
+        <li><h4>Connect those actions to what already exists</h4><p>Point each approved action at the real system already running that part of the business — no need to replace anything already in place.</p></li>
+        <li><h4>Teach the assistant the tone and the guardrails</h4><p>Give it a voice appropriate to that business, and the same non-negotiable rules: never invent information, never claim something succeeded unless it's confirmed.</p></li>
+        <li><h4>Launch on the channel customers already use</h4><p>Wherever they already are — a chat app, the website, eventually a phone line — without changing anything upstream of it.</p></li>
+      </ol>
+    </section>
+
+    <section id="closing">
+      <h2><span class="n">06</span>The bigger question</h2>
+      <p class="lead">
+        The pattern is proven inside one part of the business. The interesting question now isn't
+        whether it works — it's where we point it next.
+      </p>
+      <div class="callout">
+        <b>Worth a conversation:</b> which process, somewhere else in the business, still runs on
+        phone calls, forms, or someone manually checking a system on a customer's behalf?
+        That's usually where this pattern pays off fastest.
+      </div>
+    </section>
+
+    <footer class="doc-foot">
+      A leadership-facing companion to the technical documentation for the AI booking platform. Written to introduce the underlying pattern, not just the project. 2026-07-22.
+    </footer>
+  </main>
+</div>
+</body>
+</html>

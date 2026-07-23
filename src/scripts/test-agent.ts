@@ -32,7 +32,7 @@ async function main() {
   console.log(" Agent Integration Test");
   console.log("==============================\n");
 
-  const prompt = "Find me a cardiologist.";
+  const prompt = process.argv[2] ?? "Find me a cardiologist.";
 
   console.log("User:");
   console.log(prompt);
@@ -44,6 +44,8 @@ async function main() {
     conversationId: "conversation-001",
 
     messages: [new HumanMessage(prompt)],
+
+    newMessages: [],
 
     toolResults: [],
 

@@ -15,6 +15,17 @@ import { ZodType } from "zod";
  * ------------------------------------------------------------------
  */
 
+/**
+ * Trusted context supplied by the graph itself, never by the LLM.
+ *
+ * Tools that act on behalf of a specific customer (creating or
+ * cancelling a booking) must use context.customerId rather than
+ * trusting a customerId the model might pass as an argument.
+ */
+export interface ToolContext {
+  readonly customerId: string;
+}
+
 export interface AgentTool<TInput = unknown, TOutput = unknown> {
   /**
    * Unique tool name.
@@ -50,5 +61,5 @@ export interface AgentTool<TInput = unknown, TOutput = unknown> {
    * The tool should never contain SQL.
    * It delegates to Services.
    */
-  execute(input: TInput): Promise<TOutput>;
+  execute(input: TInput, context: ToolContext): Promise<TOutput>;
 }

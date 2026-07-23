@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How the AI Agent Talks to the Database</title>
+<style>
+  :root {
+    --bg: #eef1f3;
+    --surface: #ffffff;
+    --surface-2: #e4e9ec;
+    --ink: #12181f;
+    --ink-muted: #4b5964;
+    --ink-faint: #7c8a93;
+    --line: #d7dee2;
+    --accent: #0e7c86;      /* teal — reasoning / agent layer */
+    --accent-soft: #dcefef;
+    --accent2: #a5680b;     /* amber — data / persistence layer */
+    --accent2-soft: #f4e7d3;
+    --danger: #b3432f;
+    --font-display: "Iowan Old Style", "Palatino Linotype", Charter, Georgia, serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --radius: 7px;
+    color-scheme: light;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1116;
+      --surface: #121a21;
+      --surface-2: #182129;
+      --ink: #e8edef;
+      --ink-muted: #a6b4bc;
+      --ink-faint: #71828b;
+      --line: #22303a;
+      --accent: #52d3dd;
+      --accent-soft: #12333537;
+      --accent2: #e0a458;
+      --accent2-soft: #3a2c1633;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b1116;
+    --surface: #121a21;
+    --surface-2: #182129;
+    --ink: #e8edef;
+    --ink-muted: #a6b4bc;
+    --ink-faint: #71828b;
+    --line: #22303a;
+    --accent: #52d3dd;
+    --accent-soft: #12333537;
+    --accent2: #e0a458;
+    --accent2-soft: #3a2c1633;
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --bg: #eef1f3;
+    --surface: #ffffff;
+    --surface-2: #e4e9ec;
+    --ink: #12181f;
+    --ink-muted: #4b5964;
+    --ink-faint: #7c8a93;
+    --line: #d7dee2;
+    --accent: #0e7c86;
+    --accent-soft: #dcefef;
+    --accent2: #a5680b;
+    --accent2-soft: #f4e7d3;
+    color-scheme: light;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--accent-soft); }
+
+  a { color: var(--accent); text-decoration-thickness: 1px; }
+  code, pre, kbd { font-family: var(--font-mono); }
+
+  .page {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 760px);
+    justify-content: center;
+    gap: 56px;
+    padding: 64px 32px 120px;
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+
+  @media (max-width: 900px) {
+    .page { grid-template-columns: minmax(0, 1fr); padding: 40px 20px 100px; }
+    nav.toc { display: none; }
+  }
+
+  /* ---------- side nav ---------- */
+  nav.toc {
+    position: sticky;
+    top: 48px;
+    align-self: start;
+    font-size: 13px;
+  }
+  nav.toc .label {
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+    font-size: 11px;
+    margin-bottom: 14px;
+  }
+  nav.toc ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-left: 1px solid var(--line);
+  }
+  nav.toc li { margin: 0; }
+  nav.toc a {
+    display: block;
+    padding: 6px 0 6px 16px;
+    margin-left: -1px;
+    border-left: 1px solid transparent;
+    color: var(--ink-muted);
+    text-decoration: none;
+    line-height: 1.4;
+  }
+  nav.toc a:hover { color: var(--ink); border-left-color: var(--ink-faint); }
+
+  /* ---------- header ---------- */
+  header.doc-head {
+    margin-bottom: 56px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--line);
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 14px;
+  }
+  h1.doc-title {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 40px;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    margin: 0 0 14px;
+    text-wrap: balance;
+  }
+  .doc-sub {
+    font-size: 17px;
+    color: var(--ink-muted);
+    max-width: 58ch;
+    line-height: 1.55;
+    margin: 0 0 22px;
+  }
+  .meta-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 22px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-faint);
+  }
+  .meta-strip span b { color: var(--ink-muted); font-weight: 600; }
+
+  /* ---------- typography ---------- */
+  main section { margin-bottom: 58px; }
+  h2 {
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    margin: 0 0 6px;
+    text-wrap: balance;
+    scroll-margin-top: 40px;
+  }
+  h2 .n {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: var(--ink-faint);
+    font-weight: 400;
+    margin-right: 10px;
+  }
+  h3 {
+    font-family: var(--font-body);
+    font-size: 16px;
+    font-weight: 700;
+    margin: 28px 0 10px;
+    color: var(--ink);
+  }
+  .kicker {
+    color: var(--ink-faint);
+    font-size: 14px;
+    margin: 0 0 22px;
+  }
+  p { line-height: 1.7; font-size: 15.5px; color: var(--ink); max-width: 68ch; }
+  p.lead { font-size: 17px; color: var(--ink-muted); }
+  ul, ol { line-height: 1.7; font-size: 15.5px; padding-left: 22px; max-width: 66ch; }
+  li { margin-bottom: 6px; }
+  strong { font-weight: 650; }
+
+  .accent-a { color: var(--accent); font-weight: 600; }
+  .accent-b { color: var(--accent2); font-weight: 600; }
+
+  /* ---------- callouts / glossary ---------- */
+  .box {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin: 20px 0;
+  }
+  .glossary dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 10px 20px;
+    margin: 0;
+  }
+  .glossary dt {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    white-space: nowrap;
+    padding-top: 1px;
+  }
+  .glossary dd {
+    margin: 0;
+    font-size: 14.5px;
+    color: var(--ink-muted);
+    line-height: 1.6;
+  }
+
+  .callout {
+    border-left: 3px solid var(--accent2);
+    background: var(--accent2-soft);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 14px 20px;
+    margin: 20px 0;
+    font-size: 14.5px;
+    color: var(--ink);
+  }
+  .callout b { color: var(--accent2); }
+
+  /* ---------- diagrams ---------- */
+  .diagram-wrap {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin: 22px 0;
+    overflow-x: auto;
+  }
+  .diagram-wrap .cap {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-faint);
+    margin-bottom: 12px;
+  }
+  /* ---------- static pipeline / architecture diagrams ---------- */
+  .pipeline {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    row-gap: 14px;
+  }
+  .pnode {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 14px;
+    min-width: 118px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .pnode .t { font-size: 13px; font-weight: 650; color: var(--ink); }
+  .pnode .s { font-size: 11px; color: var(--ink-faint); line-height: 1.35; }
+  .pnode.accent { border-color: var(--accent); background: var(--accent-soft); }
+  .pnode.accent .t { color: var(--accent); }
+  .arrow-h, .arrow-v {
+    color: var(--ink-faint);
+    font-size: 18px;
+    flex: 0 0 auto;
+    padding: 0 8px;
+  }
+  .arrow-v { display: none; width: 100%; text-align: center; padding: 0; }
+  .branch-note {
+    margin-top: 16px;
+    font-size: 13px;
+    color: var(--ink-muted);
+    max-width: 66ch;
+  }
+  .branch-note b { color: var(--ink); }
+  @media (max-width: 640px) {
+    .pipeline { flex-direction: column; align-items: stretch; }
+    .pipeline .arrow-h { display: none; }
+    .pipeline .arrow-v { display: block; }
+    .pnode { min-width: 0; }
+  }
+
+  .arch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .arch .down { color: var(--ink-faint); font-size: 18px; line-height: 1; margin: 2px 0; text-align: center; }
+  .arch .down .lbl {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    letter-spacing: 0.02em;
+  }
+  .loop-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px dashed var(--accent);
+    border-radius: 8px;
+    padding: 12px 18px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .loop-glyph { color: var(--accent); font-size: 20px; }
+  .final-branch {
+    border-left: 1px dashed var(--line);
+    padding-left: 10px;
+    font-size: 12px;
+    color: var(--ink-faint);
+  }
+  .arch-row {
+    display: grid;
+    gap: 10px;
+    width: 100%;
+    max-width: 620px;
+  }
+  .arch-row.cols-4 { grid-template-columns: repeat(4, 1fr); }
+  .arch-row.cols-2 { grid-template-columns: repeat(2, 1fr); max-width: 460px; }
+  .arch-row .pnode { min-width: 0; align-items: center; text-align: center; }
+  .pnode.db { border-color: var(--accent2); background: var(--accent2-soft); }
+  .pnode.db .t { color: var(--accent2); }
+  @media (max-width: 640px) {
+    .arch-row.cols-4 { grid-template-columns: repeat(2, 1fr); }
+    .arch-row.cols-2 { grid-template-columns: 1fr; }
+  }
+
+  /* ---------- code ---------- */
+  .snippet {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin: 18px 0;
+  }
+  .snippet .file {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-faint);
+    background: var(--surface-2);
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .snippet pre {
+    margin: 0;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .snippet code { color: var(--ink); }
+  .tok-kw { color: var(--accent2); }
+  .tok-str { color: var(--accent); }
+  .tok-com { color: var(--ink-faint); font-style: italic; }
+
+  /* ---------- tables ---------- */
+  .table-wrap { overflow-x: auto; margin: 18px 0; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 14px;
+    min-width: 560px;
+  }
+  th, td {
+    text-align: left;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-faint);
+    font-weight: 600;
+  }
+  td code { font-size: 12.5px; background: var(--surface-2); padding: 1px 6px; border-radius: 4px; }
+  tr:last-child td { border-bottom: none; }
+
+  /* ---------- flow steps ---------- */
+  .steps { counter-reset: step; list-style: none; padding: 0; margin: 22px 0; }
+  .steps li {
+    counter-increment: step;
+    position: relative;
+    padding: 2px 0 22px 40px;
+    border-left: 1px solid var(--line);
+    margin-left: 13px;
+    max-width: 66ch;
+  }
+  .steps li:last-child { border-left-color: transparent; padding-bottom: 0; }
+  .steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: -13px;
+    top: 0;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .steps h4 { margin: 2px 0 6px; font-size: 15px; }
+  .steps p { margin: 0; font-size: 14.5px; color: var(--ink-muted); }
+
+  footer.doc-foot {
+    margin-top: 70px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    font-size: 13px;
+    color: var(--ink-faint);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { scroll-behavior: auto !important; }
+  }
+  html { scroll-behavior: smooth; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <nav class="toc" aria-label="Table of contents">
+    <div class="label">Contents</div>
+    <ol>
+      <li><a href="#big-picture">The big picture</a></li>
+      <li><a href="#concepts">Concepts you'll need</a></li>
+      <li><a href="#walkthrough">A request, step by step</a></li>
+      <li><a href="#tool-calling">How the AI touches the DB</a></li>
+      <li><a href="#architecture">Layered architecture</a></li>
+      <li><a href="#safety">Safety &amp; correctness</a></li>
+      <li><a href="#memory">Where memory lives</a></li>
+      <li><a href="#files">File map</a></li>
+      <li><a href="#extending">Adding a new capability</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="doc-head">
+      <p class="eyebrow">Technical Overview — Internal</p>
+      <h1 class="doc-title">How the AI Agent Talks to the Database</h1>
+      <p class="doc-sub">
+        A walkthrough of how a patient's message on Telegram turns into a real, safe
+        database read or write — and why the language model itself never touches SQL.
+      </p>
+      <div class="meta-strip">
+        <span><b>Scope</b> — booking agent request path</span>
+        <span><b>Stack</b> — Node/TypeScript, LangGraph, Groq, PostgreSQL</span>
+        <span><b>Audience</b> — new to this architecture</span>
+      </div>
+    </header>
+
+    <section id="big-picture">
+      <h2><span class="n">01</span>The big picture</h2>
+      <p class="lead">
+        In one sentence: the model never runs SQL — it asks, in structured JSON, for a
+        capability like "search doctors" or "book this slot," and ordinary trusted
+        application code decides how that turns into a parameterized query.
+      </p>
+      <p>
+        The system has two halves that hand off to each other in a loop. The
+        <span class="accent-a">reasoning half</span> is a large language model (LLM) that reads the
+        conversation and decides what to say or what to ask for next. The
+        <span class="accent-b">data half</span> is plain TypeScript — services and repositories — that
+        knows how to query Postgres. The LLM is never given a database connection; it can only
+        request one of a fixed set of named actions, and those actions are the only door into the database.
+      </p>
+      <div class="diagram-wrap">
+        <div class="cap">End-to-end request flow</div>
+        <div class="pipeline">
+          <div class="pnode"><span class="t">Patient</span><span class="s">Telegram chat</span></div>
+          <span class="arrow-h">&rarr;</span><span class="arrow-v">&darr;</span>
+          <div class="pnode"><span class="t">Telegram Service</span><span class="s">webhook handler</span></div>
+          <span class="arrow-h">&rarr;</span><span class="arrow-v">&darr;</span>
+          <div class="pnode"><span class="t">AI Chat Service</span><span class="s">saves + reloads history</span></div>
+          <span class="arrow-h">&rarr;</span><span class="arrow-v">&darr;</span>
+          <div class="pnode accent"><span class="t">Agent loop</span><span class="s">LLM &#8646; Tool, repeats until done</span></div>
+          <span class="arrow-h">&rarr;</span><span class="arrow-v">&darr;</span>
+          <div class="pnode"><span class="t">AI Chat Service</span><span class="s">saves turn, returns text</span></div>
+          <span class="arrow-h">&rarr;</span><span class="arrow-v">&darr;</span>
+          <div class="pnode"><span class="t">Patient</span><span class="s">reply in Telegram</span></div>
+        </div>
+        <p class="branch-note">
+          &#8618; Every time the <b>Agent loop</b> runs its Tool step, it reads/writes <b>Postgres</b> —
+          doctors, availability, bookings. Every time <b>AI Chat Service</b> runs, it reads/writes a
+          separate part of <b>Postgres</b> — the conversation history. Two different tables, same database.
+        </p>
+      </div>
+      <p>
+        Everything below unpacks one hop of this diagram at a time — starting with the
+        vocabulary, since a few of these terms (agent, tool calling, LangGraph) will be new.
+      </p>
+    </section>
+
+    <section id="concepts">
+      <h2><span class="n">02</span>Concepts you'll need</h2>
+      <p>A short glossary before the walkthrough — skip anything you already know.</p>
+      <div class="box glossary">
+        <dl>
+          <dt>LLM</dt>
+          <dd>The language model itself (here, a Llama model served by <strong>Groq</strong>). Given a list of messages, it returns one message back — plain text, or a request to call a named function.</dd>
+
+          <dt>Tool calling</dt>
+          <dd>A mode where the LLM is shown a list of function names + schemas (no code, just names and typed parameters) and can respond with "call <code>checkAvailability</code> with <code>doctorId: "..."</code>" instead of text. The model never executes anything — it only asks.</dd>
+
+          <dt>Agent</dt>
+          <dd>The loop that keeps feeding the model's tool requests back to it with results, until it stops asking for tools and produces a final answer. "Agent" just means "LLM + a loop + a set of tools it can request."</dd>
+
+          <dt>LangGraph</dt>
+          <dd>The orchestration library used to implement that loop as an explicit state machine (a "graph") instead of hand-rolled <code>while</code> logic. Two nodes matter here: <code>llm</code> and <code>tool</code>.</dd>
+
+          <dt>Zod schema</dt>
+          <dd>A TypeScript validation library. Every tool declares its expected input shape as a Zod schema, which doubles as (a) the contract shown to the LLM and (b) a runtime guard against malformed or hallucinated arguments.</dd>
+
+          <dt>Repository</dt>
+          <dd>The one place per data type (doctors, bookings, messages…) allowed to write raw SQL. Everything above it works with plain objects, never rows or query strings.</dd>
+
+          <dt>Connection pool</dt>
+          <dd>A small set of reusable Postgres connections (here, <code>pg.Pool</code>, max 10) that repositories borrow from per query instead of opening a new connection each time.</dd>
+
+          <dt>Row lock (<code>FOR UPDATE</code>)</dt>
+          <dd>A SQL clause that locks the selected row until the transaction commits, so two simultaneous requests can't both grab the same appointment slot.</dd>
+        </dl>
+      </div>
+    </section>
+
+    <section id="walkthrough">
+      <h2><span class="n">03</span>A request, step by step</h2>
+      <p class="lead">Concretely, here's what happens when a patient books an appointment.</p>
+      <ol class="steps">
+        <li>
+          <h4>Message arrives</h4>
+          <p>Telegram posts the update to a webhook. <code>TelegramController</code> replies <code>200</code> immediately (Telegram retries otherwise) and hands the message to <code>TelegramService</code> to process asynchronously.</p>
+        </li>
+        <li>
+          <h4>Identity resolves to a customer row</h4>
+          <p><code>CustomerService.findOrCreate</code> looks the Telegram chat ID up in the <code>customers</code> table, creating a row on first contact. From here on, the conversation is tied to a real <code>customerId</code> — not a Telegram ID.</p>
+        </li>
+        <li>
+          <h4>The message is persisted before the AI ever sees it</h4>
+          <p><code>AIChatService</code> finds or opens a <code>conversations</code> row, then saves the incoming text into the <code>messages</code> table straight away. If anything downstream fails, the user's message is never lost.</p>
+        </li>
+        <li>
+          <h4>Full history is reloaded from Postgres</h4>
+          <p>Every message ever exchanged in this conversation is read back out and converted into LangChain message objects. The agent has no memory of its own between requests — <a href="#memory">more on this below</a>.</p>
+        </li>
+        <li>
+          <h4>The graph runs: LLM ⇄ tool, until done</h4>
+          <p>The system prompt plus the full history go to Groq. If the reply contains tool calls, <code>ToolNode</code> executes them and feeds JSON results back in; the graph loops back to the LLM. Once a reply has <em>no</em> tool calls, <code>RouterNode</code> ends the loop.</p>
+        </li>
+        <li>
+          <h4>Every tool call becomes a real, parameterized query</h4>
+          <p>Searching doctors, checking slots, creating or cancelling a booking — each is a repository method running SQL against Postgres, detailed in the next section.</p>
+        </li>
+        <li>
+          <h4>The turn is written back and returned</h4>
+          <p>All the new messages generated this turn (tool calls, tool results, the final answer) are saved to <code>messages</code>, the conversation's <code>last_message_at</code> is touched, and the final text is sent back through Telegram.</p>
+        </li>
+      </ol>
+    </section>
+
+    <section id="tool-calling">
+      <h2><span class="n">04</span>How the AI actually touches the database</h2>
+      <p class="lead">This is the part that matters most: the model requests, trusted code decides.</p>
+      <p>
+        The LLM is bound to four tools — <code>searchDoctor</code>, <code>checkAvailability</code>,
+        <code>createBooking</code>, <code>cancelBooking</code> — each described to it only by name,
+        a plain-English description, and a Zod schema. That's the entire surface the model can see.
+        It cannot see SQL, table names, or connection details, because none of those are part of a
+        tool's public shape.
+      </p>
+      <div class="snippet">
+        <div class="file">src/agent/tools/agent-tools.ts</div>
+        <pre><code><span class="tok-com">// Every tool the LLM can call implements this shape.</span>
+<span class="tok-kw">interface</span> AgentTool&lt;TInput, TOutput&gt; {
+  readonly name: <span class="tok-kw">string</span>;             <span class="tok-com">// e.g. "checkAvailability"</span>
+  readonly description: <span class="tok-kw">string</span>;      <span class="tok-com">// shown to the LLM</span>
+  readonly schema: ZodType&lt;TInput&gt;;    <span class="tok-com">// shown to the LLM + validated at runtime</span>
+  execute(input: TInput, context: ToolContext): Promise&lt;TOutput&gt;;
+}</code></pre>
+      </div>
+      <p>
+        When the model asks to call one, <code>ToolNode</code> does not trust the arguments blindly.
+        It re-validates them against that same Zod schema before anything touches a repository:
+      </p>
+      <div class="snippet">
+        <div class="file">src/agent/nodes/tool.node.ts</div>
+        <pre><code><span class="tok-com">// A malformed or hallucinated argument becomes a normal tool</span>
+<span class="tok-com">// result the LLM can react to — never a crash mid-conversation.</span>
+<span class="tok-kw">const</span> parsedArgs = tool.schema.safeParse(toolCall.args);
+
+<span class="tok-kw">const</span> result = parsedArgs.success
+  ? <span class="tok-kw">await</span> tool.execute(parsedArgs.data, { customerId: state.customerId })
+  : { success: <span class="tok-kw">false</span>, reason: <span class="tok-str">"INVALID_INPUT"</span>, message: <span class="tok-str">"..."</span> };</code></pre>
+      </div>
+      <div class="callout">
+        <b>Note the <code>customerId</code></b> in that snippet comes from <code>state</code> — the graph's own
+        trusted state — not from <code>toolCall.args</code>. The model is never asked for, and could never
+        supply, whose booking to create or cancel. That identity is injected by the app, closing off an
+        entire class of "make the AI act as someone else" bugs.
+      </div>
+      <p>
+        From there it's an ordinary call stack: <code>Tool → Service → Repository → pg.Pool.query()</code>.
+        No layer above the repository ever sees a table name or writes a query string.
+      </p>
+    </section>
+
+    <section id="architecture">
+      <h2><span class="n">05</span>Layered architecture</h2>
+      <p class="lead">The agent is deliberately kept ignorant of the database; only the bottom layer knows SQL exists.</p>
+      <div class="diagram-wrap">
+        <div class="cap">Tool &rarr; service &rarr; repository &rarr; Postgres</div>
+        <div class="arch">
+          <div class="loop-box">
+            <div class="pnode accent"><span class="t">Groq LLM</span></div>
+            <span class="loop-glyph">&#8646;</span>
+            <div class="pnode accent"><span class="t">Tool Node</span></div>
+            <span class="final-branch">no tool call &rarr; final answer</span>
+          </div>
+          <div class="down"><span class="lbl">tool name + args</span>&darr;</div>
+          <div class="pnode"><span class="t">Tool Registry</span></div>
+          <div class="down">&darr;</div>
+          <div class="arch-row cols-4">
+            <div class="pnode"><span class="t">searchDoctor</span></div>
+            <div class="pnode"><span class="t">checkAvailability</span></div>
+            <div class="pnode"><span class="t">createBooking</span></div>
+            <div class="pnode"><span class="t">cancelBooking</span></div>
+          </div>
+          <div class="down">&darr;</div>
+          <div class="arch-row cols-2">
+            <div class="pnode"><span class="t">Doctor Service</span></div>
+            <div class="pnode"><span class="t">Booking Service</span></div>
+          </div>
+          <div class="down">&darr;</div>
+          <div class="arch-row cols-2">
+            <div class="pnode"><span class="t">Doctor Repository</span></div>
+            <div class="pnode"><span class="t">Booking Repository</span></div>
+          </div>
+          <div class="down">&darr;</div>
+          <div class="pnode db"><span class="t">PostgreSQL</span></div>
+        </div>
+        <p class="branch-note">
+          <b>searchDoctor</b> calls Doctor Service; the other three tools call Booking Service —
+          both ultimately hit the same Postgres instance through their own repository.
+        </p>
+      </div>
+      <p>
+        Two things fall out of drawing it this way. First, the <code>ToolNode</code> never imports a
+        concrete tool class directly — it asks the <code>ToolRegistry</code> for whatever tool matches the
+        name the model produced. New capabilities are added by registering a new tool, not by editing the
+        graph. Second, <strong>services contain no SQL</strong> — <code>BookingService</code> and
+        <code>DoctorService</code> read as plain business logic; only <code>BookingRepository</code> and
+        <code>DoctorRepository</code> ever import <code>pg</code> or write a query string. If Postgres were
+        swapped for something else, this is the only layer that would need to change.
+      </p>
+    </section>
+
+    <section id="safety">
+      <h2><span class="n">06</span>Safety &amp; correctness guarantees</h2>
+      <h3>Booking a slot is a transaction, not two separate writes</h3>
+      <p>
+        Two patients can message the bot for the same slot within the same second. <code>bookSlot</code>
+        opens a transaction, locks the availability row with <code>FOR UPDATE</code>, re-checks
+        <code>is_available</code>, and only then inserts the booking and flips the slot — all inside one
+        commit. The second request to reach that row simply sees it's already taken.
+      </p>
+      <div class="snippet">
+        <div class="file">src/booking/booking.repository.ts</div>
+        <pre><code><span class="tok-kw">await</span> client.query(<span class="tok-str">"BEGIN"</span>);
+<span class="tok-kw">const</span> { rows } = <span class="tok-kw">await</span> client.query(
+  <span class="tok-str">`SELECT * FROM doctor_availability WHERE id = $1 FOR UPDATE;`</span>, [availabilityId]
+);
+<span class="tok-com">// ...re-check is_available, then INSERT/UPDATE the booking...</span>
+<span class="tok-kw">await</span> client.query(
+  <span class="tok-str">`UPDATE doctor_availability SET is_available = false WHERE id = $1;`</span>, [availabilityId]
+);
+<span class="tok-kw">await</span> client.query(<span class="tok-str">"COMMIT"</span>);</code></pre>
+      </div>
+      <h3>Expected failures are data, not exceptions</h3>
+      <p>
+        "Slot already taken," "booking not found," "this booking isn't yours" are all ordinary return
+        values (<code>{ success: false, reason: "..." }</code>), not thrown errors. They flow back to the
+        LLM as a tool result so it can explain the outcome in plain language, instead of the whole turn
+        failing. The system prompt reinforces this explicitly: tool results are the model's only source of
+        truth — it's instructed never to invent a doctor, slot, or booking ID.
+      </p>
+      <h3>Every SQL value is parameterized</h3>
+      <p>
+        Every query in every repository uses <code>$1, $2, …</code> placeholders with a separate values
+        array — never string-concatenated input — so nothing the model (or the patient) types can alter
+        query structure.
+      </p>
+    </section>
+
+    <section id="memory">
+      <h2><span class="n">07</span>Where "memory" actually lives</h2>
+      <p>
+        It's tempting to think of the agent as a long-running process that remembers a conversation. It
+        doesn't — <strong>the agent itself is stateless</strong>. Each incoming message triggers a fresh
+        invocation with no memory of the previous call in the process. What looks like memory is the
+        <code>messages</code> table: the entire history is re-read from Postgres and replayed to the LLM
+        on every single turn.
+      </p>
+      <p>
+        This has a practical consequence worth knowing: conversation length is bounded by how much history
+        the model can be sent, not by any session or cache — and history really is the full row set for
+        that <code>conversation_id</code>, ordered by <code>created_at</code>.
+      </p>
+    </section>
+
+    <section id="files">
+      <h2><span class="n">08</span>File map</h2>
+      <p>A quick index from concept to file, for when you want to read the real thing.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Concept</th><th>File</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Agent loop (LangGraph graph definition)</td><td><code>src/agent/graph/booking.graph.ts</code></td></tr>
+            <tr><td>LLM call + Groq binding</td><td><code>src/agent/nodes/llm.node.ts</code>, <code>src/agent/providers/groq.provider.ts</code></td></tr>
+            <tr><td>Tool execution + arg validation</td><td><code>src/agent/nodes/tool.node.ts</code></td></tr>
+            <tr><td>Tool → real class lookup</td><td><code>src/agent/registry/tool.registry.ts</code></td></tr>
+            <tr><td>Tool contract (shape every tool implements)</td><td><code>src/agent/tools/agent-tools.ts</code></td></tr>
+            <tr><td>The four booking/search tools</td><td><code>src/agent/tools/*.tool.ts</code></td></tr>
+            <tr><td>System prompt (identity, rules, safety)</td><td><code>src/agent/prompts/*.prompt.ts</code></td></tr>
+            <tr><td>Business logic, no SQL</td><td><code>src/booking/booking.service.ts</code>, <code>src/doctor/doctor.service.ts</code></td></tr>
+            <tr><td>The only files that write SQL</td><td><code>src/booking/booking.repository.ts</code>, <code>src/doctor/doctor.repository.ts</code>, <code>src/customer/customer.repository.ts</code>, <code>src/conversation/conversation.repository.ts</code>, <code>src/message/message.repository.ts</code></td></tr>
+            <tr><td>Postgres connection pool</td><td><code>src/database/database.ts</code></td></tr>
+            <tr><td>DB row ⇄ LangChain message conversion</td><td><code>src/agent/utils/message.mapper.ts</code></td></tr>
+            <tr><td>Wires everything together at startup</td><td><code>src/bootstrap/agent.bootstrap.ts</code></td></tr>
+            <tr><td>Telegram webhook → agent entry point</td><td><code>src/telegram/telegram.service.ts</code>, <code>src/ai/ai-chat.service.ts</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="extending">
+      <h2><span class="n">09</span>Adding a new capability</h2>
+      <p>Because of the layering above, adding something like "reschedule an appointment" is additive, not invasive:</p>
+      <ol class="steps">
+        <li><h4>Add the data method</h4><p>A new method on <code>BookingRepository</code> (SQL) and <code>BookingService</code> (business rule) if one doesn't already fit.</p></li>
+        <li><h4>Write the tool</h4><p>A class implementing <code>AgentTool</code> — name, description, Zod schema, and an <code>execute</code> that calls the service. No graph code changes.</p></li>
+        <li><h4>Register it</h4><p>One line in <code>agent.bootstrap.ts</code>: <code>registry.register(new RescheduleBookingTool(bookingService))</code>.</p></li>
+        <li><h4>Tell the model when to use it</h4><p>A line in <code>tool-rules.prompt.ts</code> so the system prompt's rules stay in sync with what's actually registered.</p></li>
+      </ol>
+    </section>
+
+    <footer class="doc-foot">
+      Prepared as a technical orientation to the booking agent's request path. Reflects the codebase as of 2026-07-22.
+    </footer>
+  </main>
+</div>
+</body>
+</html>

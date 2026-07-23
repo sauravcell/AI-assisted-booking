@@ -17,7 +17,7 @@ User:
 Tomorrow morning.
 
 Assistant:
-(createAppointment)
+(createBooking)
 
 ---
 

@@ -25,7 +25,26 @@ export class ToolNode {
         throw new Error(`Tool call '${toolCall.name}' is missing an id.`);
       }
 
-      const result = await tool.execute(toolCall.args);
+      /**
+       * Validate the LLM-supplied arguments against the tool's own
+       * schema before running it. A malformed/hallucinated argument
+       * (e.g. a doctor's name where a UUID is expected) becomes a
+       * normal tool result the LLM can react to, instead of an
+       * uncaught database error crashing the whole turn.
+       */
+      const parsedArgs = tool.schema.safeParse(toolCall.args);
+
+      const result = parsedArgs.success
+        ? await tool.execute(parsedArgs.data, {
+            customerId: state.customerId,
+          })
+        : {
+            success: false,
+            reason: "INVALID_INPUT",
+            message: `Invalid arguments for "${toolCall.name}": ${parsedArgs.error.issues
+              .map((issue) => issue.message)
+              .join("; ")}`,
+          };
 
       console.log("\n========== TOOL ==========");
       console.log("Tool:", toolCall.name);

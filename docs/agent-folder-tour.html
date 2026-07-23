@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inside the agent/ Folder — A Plain-Language Tour</title>
+<style>
+  :root {
+    --bg: #eef1f3;
+    --surface: #ffffff;
+    --surface-2: #e4e9ec;
+    --ink: #12181f;
+    --ink-muted: #4b5964;
+    --ink-faint: #7c8a93;
+    --line: #d7dee2;
+    --accent: #0e7c86;
+    --accent-soft: #dcefef;
+    --accent2: #a5680b;
+    --accent2-soft: #f4e7d3;
+    --font-display: "Iowan Old Style", "Palatino Linotype", Charter, Georgia, serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --radius: 7px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1116; --surface: #121a21; --surface-2: #182129;
+      --ink: #e8edef; --ink-muted: #a6b4bc; --ink-faint: #71828b;
+      --line: #22303a; --accent: #52d3dd; --accent-soft: #12333537;
+      --accent2: #e0a458; --accent2-soft: #3a2c1633;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b1116; --surface: #121a21; --surface-2: #182129;
+    --ink: #e8edef; --ink-muted: #a6b4bc; --ink-faint: #71828b;
+    --line: #22303a; --accent: #52d3dd; --accent-soft: #12333537;
+    --accent2: #e0a458; --accent2-soft: #3a2c1633;
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --bg: #eef1f3; --surface: #ffffff; --surface-2: #e4e9ec;
+    --ink: #12181f; --ink-muted: #4b5964; --ink-faint: #7c8a93;
+    --line: #d7dee2; --accent: #0e7c86; --accent-soft: #dcefef;
+    --accent2: #a5680b; --accent2-soft: #f4e7d3;
+    color-scheme: light;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--accent-soft); }
+  a { color: var(--accent); text-decoration-thickness: 1px; }
+  code { font-family: var(--font-mono); font-size: 0.92em; background: var(--surface-2); padding: 1px 6px; border-radius: 4px; }
+
+  .page {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 760px);
+    justify-content: center;
+    gap: 56px;
+    padding: 64px 32px 120px;
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+  @media (max-width: 900px) {
+    .page { grid-template-columns: minmax(0, 1fr); padding: 40px 20px 100px; }
+    nav.toc { display: none; }
+  }
+
+  nav.toc { position: sticky; top: 48px; align-self: start; font-size: 13px; }
+  nav.toc .label {
+    font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-faint); font-size: 11px; margin-bottom: 14px;
+  }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; border-left: 1px solid var(--line); }
+  nav.toc a {
+    display: block; padding: 6px 0 6px 16px; margin-left: -1px;
+    border-left: 1px solid transparent; color: var(--ink-muted); text-decoration: none; line-height: 1.4;
+  }
+  nav.toc a:hover { color: var(--ink); border-left-color: var(--ink-faint); }
+
+  header.doc-head { margin-bottom: 56px; padding-bottom: 28px; border-bottom: 1px solid var(--line); }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.09em;
+    text-transform: uppercase; color: var(--accent); margin: 0 0 14px;
+  }
+  h1.doc-title {
+    font-family: var(--font-display); font-weight: 500; font-size: 38px; line-height: 1.15;
+    letter-spacing: -0.01em; margin: 0 0 14px; text-wrap: balance;
+  }
+  .doc-sub { font-size: 17px; color: var(--ink-muted); max-width: 58ch; line-height: 1.55; margin: 0 0 22px; }
+  .meta-strip { display: flex; flex-wrap: wrap; gap: 8px 22px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
+  .meta-strip span b { color: var(--ink-muted); font-weight: 600; }
+
+  main section { margin-bottom: 58px; }
+  h2 {
+    font-family: var(--font-display); font-size: 25px; font-weight: 500; letter-spacing: -0.005em;
+    margin: 0 0 6px; text-wrap: balance; scroll-margin-top: 40px;
+  }
+  h2 .n { font-family: var(--font-mono); font-size: 14px; color: var(--ink-faint); font-weight: 400; margin-right: 10px; }
+  h3 { font-family: var(--font-body); font-size: 16px; font-weight: 700; margin: 26px 0 10px; color: var(--ink); }
+  p { line-height: 1.7; font-size: 15.5px; color: var(--ink); max-width: 68ch; }
+  p.lead { font-size: 17px; color: var(--ink-muted); }
+  ul, ol { line-height: 1.7; font-size: 15.5px; padding-left: 22px; max-width: 66ch; }
+  li { margin-bottom: 6px; }
+  strong { font-weight: 650; }
+
+  .box {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 20px 24px; margin: 20px 0;
+  }
+  .callout {
+    border-left: 3px solid var(--accent2); background: var(--accent2-soft);
+    border-radius: 0 var(--radius) var(--radius) 0; padding: 14px 20px; margin: 20px 0;
+    font-size: 14.5px; color: var(--ink);
+  }
+  .callout b { color: var(--accent2); }
+
+  .diagram-wrap {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 22px; margin: 22px 0; overflow-x: auto;
+  }
+  .diagram-wrap .cap {
+    font-family: var(--font-mono); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--ink-faint); margin-bottom: 16px;
+  }
+
+  /* boundary diagram: outside-node / arrow / folder-box / arrow / outside-node */
+  .boundary {
+    display: flex; align-items: stretch; gap: 0; flex-wrap: wrap; row-gap: 16px;
+  }
+  .b-node {
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px;
+    padding: 14px 16px; min-width: 150px; max-width: 190px;
+    display: flex; flex-direction: column; gap: 4px; justify-content: center;
+  }
+  .b-node .t { font-size: 13px; font-weight: 650; }
+  .b-node .s { font-size: 11.5px; color: var(--ink-faint); line-height: 1.4; }
+  .b-arrow-h { display: flex; align-items: center; justify-content: center; color: var(--ink-faint); font-size: 20px; padding: 0 10px; flex: 0 0 auto; }
+  .b-arrow-v { display: none; text-align: center; color: var(--ink-faint); font-size: 20px; width: 100%; }
+  .folder-box {
+    border: 1.5px dashed var(--accent); border-radius: 10px; padding: 16px; flex: 1 1 320px;
+    display: flex; flex-direction: column; gap: 10px; min-width: 280px;
+  }
+  .folder-box .flabel {
+    font-family: var(--font-mono); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--accent); text-align: center;
+  }
+  .fgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .fchip {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+    padding: 8px 10px; font-size: 12px; text-align: center;
+  }
+  .fchip b { display: block; font-size: 12.5px; margin-bottom: 2px; }
+  .fchip.dim { opacity: 0.55; }
+  @media (max-width: 720px) {
+    .boundary { flex-direction: column; align-items: stretch; }
+    .b-arrow-h { display: none; }
+    .b-arrow-v { display: block; }
+    .b-node { max-width: none; }
+    .fgrid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .steps { counter-reset: step; list-style: none; padding: 0; margin: 22px 0; }
+  .steps li {
+    counter-increment: step; position: relative; padding: 2px 0 22px 40px;
+    border-left: 1px solid var(--line); margin-left: 13px; max-width: 66ch;
+  }
+  .steps li:last-child { border-left-color: transparent; padding-bottom: 0; }
+  .steps li::before {
+    content: counter(step); position: absolute; left: -13px; top: 0;
+    width: 26px; height: 26px; border-radius: 50%; background: var(--surface);
+    border: 1px solid var(--accent); color: var(--accent); font-family: var(--font-mono);
+    font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  }
+  .steps h4 { margin: 2px 0 6px; font-size: 15px; }
+  .steps p { margin: 0; font-size: 14.5px; color: var(--ink-muted); }
+
+  .table-wrap { overflow-x: auto; margin: 18px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 600px; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th {
+    font-family: var(--font-mono); font-size: 11.5px; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--ink-faint); font-weight: 600;
+  }
+  tr:last-child td { border-bottom: none; }
+  td.folder code { white-space: nowrap; }
+
+  footer.doc-foot {
+    margin-top: 70px; padding-top: 24px; border-top: 1px solid var(--line);
+    font-size: 13px; color: var(--ink-faint);
+  }
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+  html { scroll-behavior: smooth; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <nav class="toc" aria-label="Table of contents">
+    <div class="label">Contents</div>
+    <ol>
+      <li><a href="#what-is-it">What this folder is</a></li>
+      <li><a href="#boundary">Its two doors to the rest of the app</a></li>
+      <li><a href="#tour">A tour of what's inside</a></li>
+      <li><a href="#flow">How one request moves through it</a></li>
+      <li><a href="#why">Why it's organized this way</a></li>
+      <li><a href="#map">Folder map</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="doc-head">
+      <p class="eyebrow">Folder Guide — Internal</p>
+      <h1 class="doc-title">Inside the <code>agent/</code> Folder</h1>
+      <p class="doc-sub">
+        A plain-language tour of what each piece in <code>src/agent/</code> does, and exactly
+        where it hands off to the rest of the codebase. No code in this one — just the shape of it.
+      </p>
+      <div class="meta-strip">
+        <span><b>Scope</b> — <code>src/agent/</code> only</span>
+        <span><b>Not covered here</b> — the AI's written instructions in <code>prompts/</code></span>
+      </div>
+    </header>
+
+    <section id="what-is-it">
+      <h2><span class="n">01</span>What this folder is</h2>
+      <p class="lead">
+        <code>agent/</code> is the decision-maker. It reads a conversation, decides what should
+        happen next, and either says something back or asks for a real capability — like "look up
+        this doctor" — to be carried out.
+      </p>
+      <p>
+        The one thing worth holding onto: <strong>nothing in this folder knows the database
+        exists.</strong> It doesn't import a database driver, doesn't write a query, and doesn't
+        know a table name. When it needs real information, it hands a request to code that lives
+        <em>outside</em> this folder and waits for a plain answer back.
+      </p>
+    </section>
+
+    <section id="boundary">
+      <h2><span class="n">02</span>Its two doors to the rest of the app</h2>
+      <p>Everything the folder does happens between one door coming in and one door going out.</p>
+      <div class="diagram-wrap">
+        <div class="cap">Where the folder starts and ends</div>
+        <div class="boundary">
+          <div class="b-node">
+            <span class="t">AI Chat Service</span>
+            <span class="s">rest of the app — hands over the conversation so far</span>
+          </div>
+          <span class="b-arrow-h">&rarr;</span><span class="b-arrow-v">&darr;</span>
+          <div class="folder-box">
+            <span class="flabel">agent/ — the decision-maker</span>
+            <div class="fgrid">
+              <div class="fchip"><b>service/</b>the one door in</div>
+              <div class="fchip"><b>graph/ + nodes/</b>the think-or-act loop</div>
+              <div class="fchip"><b>state/</b>the shared notepad</div>
+              <div class="fchip"><b>tools/</b>the four requestable actions</div>
+              <div class="fchip"><b>registry/</b>looks actions up by name</div>
+              <div class="fchip"><b>providers/</b>the AI vendor plug</div>
+              <div class="fchip dim">prompts/ — not covered here</div>
+              <div class="fchip"><b>adapters/</b>describes actions to the AI</div>
+              <div class="fchip"><b>utils/</b>small format converters</div>
+            </div>
+          </div>
+          <span class="b-arrow-h">&rarr;</span><span class="b-arrow-v">&darr;</span>
+          <div class="b-node">
+            <span class="t">Booking Service / Doctor Service</span>
+            <span class="s">rest of the app — the only place a database is ever touched</span>
+          </div>
+        </div>
+      </div>
+      <p>
+        In: one function call, carrying the conversation and who's asking. Out: either a message
+        to show the patient, or a request for one of exactly four named actions — never anything
+        more open-ended than that.
+      </p>
+    </section>
+
+    <section id="tour">
+      <h2><span class="n">03</span>A tour of what's inside</h2>
+      <p class="lead">Nine small folders, each doing one job.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Folder</th><th>What it does, in plain terms</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="folder"><code>service/</code></td>
+              <td>The front desk. This is the only file the rest of the app is allowed to call into. Everything else in <code>agent/</code> is reached through it.</td>
+            </tr>
+            <tr>
+              <td class="folder"><code>graph/</code></td>
+              <td>The wiring diagram for one turn of conversation. It says, in effect: "start by thinking, then check if an action was requested, do it if so, then think again — repeat until there's a plain answer."</td>
+            </tr>
+            <tr>
+              <td class="folder"><code>nodes/</code></td>
+              <td>The actual steps that wiring diagram refers to: one step asks the AI to think, one step decides what happens next, one step carries out a requested action.</td>
+            </tr>
+            <tr>
+              <td class="folder"><code>state/</code></td>
+              <td>The shared notepad for a single turn — who's asking, the conversation so far, and the answer as it's being built up. Every step reads from and writes to it.</td>
+            </tr>
+            <tr>
+              <td class="folder"><code>tools/</code></td>
+              <td>The four specific things the AI is allowed to ask for: search doctors, check open times, book, cancel. Each is a small named wrapper — the real work happens outside this folder.</td>
+            </tr>
+            <tr>
+              <td class="folder"><code>registry/</code></td>
+              <td>A simple phone book: given the name of a requested action, it looks up which wrapper actually handles it.</td>
+            </tr>
+            <tr>
+              <td class="folder"><code>adapters/</code></td>
+              <td>A translator. It describes the four actions to the AI vendor in the exact shape that vendor expects, so the AI knows they exist and what to ask for.</td>
+            </tr>
+            <tr>
+              <td class="folder"><code>providers/</code></td>
+              <td>The plug that connects to whichever AI vendor is actually doing the "thinking" (currently Groq). Switching vendors later only touches this one spot.</td>
+            </tr>
+            <tr>
+              <td class="folder"><code>utils/</code></td>
+              <td>Small converters — mainly turning a saved database message back into the format the AI vendor expects, and back again.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        (There's a tenth folder, <code>prompts/</code>, holding the AI's written instructions and
+        personality. It's out of scope for this doc — it doesn't affect how the folder talks to the
+        rest of the app, only what the AI chooses to say.)
+      </p>
+    </section>
+
+    <section id="flow">
+      <h2><span class="n">04</span>How one request moves through it</h2>
+      <ol class="steps">
+        <li>
+          <h4>It arrives through the front desk</h4>
+          <p><code>service/</code> is handed the conversation so far and who's asking. Nothing else in the folder is reachable from outside it.</p>
+        </li>
+        <li>
+          <h4>The wiring diagram starts</h4>
+          <p><code>graph/</code> kicks the loop off at its first step: think.</p>
+        </li>
+        <li>
+          <h4>The "think" step runs</h4>
+          <p>One node in <code>nodes/</code> passes the conversation to <code>providers/</code>, which forwards it to the AI vendor. The reply is either something to say, or a request for one of the four actions in <code>tools/</code>.</p>
+        </li>
+        <li>
+          <h4>A decision step checks the reply</h4>
+          <p>Another node in <code>nodes/</code> looks at what came back and decides: was an action requested, or is this a finished answer?</p>
+        </li>
+        <li>
+          <h4>If an action was requested, it's carried out</h4>
+          <p>A third node in <code>nodes/</code> uses <code>registry/</code> to find the right wrapper in <code>tools/</code>, runs it, and gets a plain result back. That wrapper is what actually calls out through the folder's second door to Booking Service / Doctor Service.</p>
+        </li>
+        <li>
+          <h4>Think again</h4>
+          <p>The result goes back to step 3, and the loop repeats until the AI produces a finished answer instead of another action request.</p>
+        </li>
+        <li>
+          <h4>It leaves through the front desk</h4>
+          <p><code>service/</code> hands the finished answer back to whoever called it in — <code>agent/</code>'s job for this turn is done.</p>
+        </li>
+      </ol>
+    </section>
+
+    <section id="why">
+      <h2><span class="n">05</span>Why it's organized this way</h2>
+      <p>Three plain benefits fall out of keeping the folder this shape:</p>
+      <div class="box">
+        <ul>
+          <li><strong>One door in, one door out.</strong> Nothing reaches into the middle of this folder from outside — everything goes through <code>service/</code> coming in, and <code>tools/</code> going out.</li>
+          <li><strong>The AI vendor can be swapped without touching booking logic.</strong> Because only <code>providers/</code> knows which vendor is in use, replacing Groq with something else later never requires changing how bookings work.</li>
+          <li><strong>New abilities don't require touching the wiring diagram.</strong> Adding a fifth action later means adding one new file to <code>tools/</code> and registering it — <code>graph/</code> and <code>nodes/</code> stay exactly as they are.</li>
+        </ul>
+      </div>
+      <div class="callout">
+        <b>In short:</b> this folder decides <em>what</em> to do and <em>when</em> — it never decides
+        <em>how</em> data gets stored or fetched. That part always lives one door away, outside <code>agent/</code>.
+      </div>
+    </section>
+
+    <section id="map">
+      <h2><span class="n">06</span>Folder map</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Folder</th><th>One-line role</th><th>Talks to</th></tr></thead>
+          <tbody>
+            <tr><td class="folder"><code>agent/service/</code></td><td>Front desk — the only entry point</td><td>AI Chat Service (in), <code>graph/</code> (out)</td></tr>
+            <tr><td class="folder"><code>agent/graph/</code></td><td>The think-or-act wiring diagram</td><td><code>nodes/</code></td></tr>
+            <tr><td class="folder"><code>agent/nodes/</code></td><td>The individual think / decide / act steps</td><td><code>providers/</code>, <code>registry/</code>, <code>state/</code></td></tr>
+            <tr><td class="folder"><code>agent/state/</code></td><td>Shared notepad for the current turn</td><td>read/written by every node</td></tr>
+            <tr><td class="folder"><code>agent/tools/</code></td><td>The four requestable actions</td><td>Booking Service, Doctor Service (outside <code>agent/</code>)</td></tr>
+            <tr><td class="folder"><code>agent/registry/</code></td><td>Looks an action up by name</td><td><code>tools/</code></td></tr>
+            <tr><td class="folder"><code>agent/adapters/</code></td><td>Describes actions to the AI vendor</td><td><code>tools/</code>, <code>providers/</code></td></tr>
+            <tr><td class="folder"><code>agent/providers/</code></td><td>Connects to the AI vendor</td><td>external AI vendor (Groq)</td></tr>
+            <tr><td class="folder"><code>agent/utils/</code></td><td>Message format converters</td><td>AI Chat Service</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="doc-foot">
+      A plain-language companion to the technical overview — focused only on <code>src/agent/</code> and its boundary with the rest of the app. Reflects the codebase as of 2026-07-22.
+    </footer>
+  </main>
+</div>
+</body>
+</html>
