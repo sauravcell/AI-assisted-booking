@@ -7,6 +7,26 @@ import { CreateMessage, Message } from "./message.types";
 export class MessageRepository {
   constructor(private readonly pool: Pool = db) {}
 
+  /**
+   * pg returns raw snake_case columns. Without this mapping,
+   * message.toolCallId/toolName/conversationId read as undefined
+   * at runtime despite the Message interface declaring them -
+   * TypeScript doesn't check the shape of what pg actually hands
+   * back.
+   */
+  private mapRow(row: any): Message {
+    return {
+      id: row.id,
+      conversationId: row.conversation_id,
+      role: row.role,
+      content: row.content,
+      toolCallId: row.tool_call_id ?? undefined,
+      toolName: row.tool_name,
+      metadata: row.metadata,
+      createdAt: row.created_at,
+    };
+  }
+
   async create(message: CreateMessage): Promise<Message> {
     const query = `
         INSERT INTO messages (
@@ -30,7 +50,7 @@ export class MessageRepository {
       message.metadata ?? null,
     ]);
 
-    return result.rows[0];
+    return this.mapRow(result.rows[0]);
   }
 
   async findByConversationId(conversationId: string): Promise<Message[]> {
@@ -43,7 +63,7 @@ export class MessageRepository {
 
     const result = await this.pool.query(query, [conversationId]);
 
-    return result.rows;
+    return result.rows.map((row) => this.mapRow(row));
   }
 
   async deleteByConversationId(conversationId: string): Promise<void> {
@@ -69,7 +89,7 @@ export class MessageRepository {
       [conversationId],
     );
 
-    return result.rows[0] ?? null;
+    return result.rows[0] ? this.mapRow(result.rows[0]) : null;
   }
 
   async saveMany(messages: CreateMessage[]): Promise<Message[]> {
@@ -111,6 +131,6 @@ export class MessageRepository {
 
     const result = await this.pool.query(query, values);
 
-    return result.rows;
+    return result.rows.map((row) => this.mapRow(row));
   }
 }

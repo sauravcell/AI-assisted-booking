@@ -780,7 +780,7 @@
         <li><h4>Add the data method</h4><p>A new method on <code>BookingRepository</code> (SQL) and <code>BookingService</code> (business rule) if one doesn't already fit.</p></li>
         <li><h4>Write the tool</h4><p>A class implementing <code>AgentTool</code> — name, description, Zod schema, and an <code>execute</code> that calls the service. No graph code changes.</p></li>
         <li><h4>Register it</h4><p>One line in <code>agent.bootstrap.ts</code>: <code>registry.register(new RescheduleBookingTool(bookingService))</code>.</p></li>
-        <li><h4>Tell the model when to use it</h4><p>A line in <code>tool-rules.prompt.ts</code> so the system prompt's rules stay in sync with what's actually registered.</p></li>
+        <li><h4>Tell the model when to use it</h4><p>A line in <code>system.prompt.ts</code> so the system prompt's rules stay in sync with what's actually registered. (The prompt currently lives as one consolidated string in that file — the per-concern files under <code>src/agent/prompts/</code> such as <code>tool-rules.prompt.ts</code> are still present but not wired in.)</p></li>
       </ol>
     </section>
 

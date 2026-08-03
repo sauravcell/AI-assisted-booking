@@ -59,4 +59,13 @@ export class DoctorService {
   async getDoctorById(id: string) {
     return this.doctorRepository.findById(id);
   }
+
+  /**
+   * Lists every specialty actually available right now, so the
+   * agent can ground a specialty-based search in a real value
+   * instead of guessing one from the patient's wording.
+   */
+  async listSpecialties(): Promise<string[]> {
+    return this.doctorRepository.findDistinctSpecializations();
+  }
 }

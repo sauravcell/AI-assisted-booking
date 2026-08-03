@@ -2,6 +2,8 @@ import axios from "axios";
 
 import { config } from "../config";
 
+import { logger } from "../shared/logger/logger";
+
 import { CustomerService } from "../customer/customer.service";
 import { AIChatService } from "../ai/ai-chat.service";
 
@@ -23,25 +25,33 @@ export class TelegramService {
     const message = update.message;
 
     if (!message) {
+      logger.debug({ update }, "[telegram] update has no message, skipping");
+
       return;
     }
 
+    const chatId = message.chat.id;
+
     if (!message.text) {
+      logger.debug({ chatId }, "[telegram] non-text message received, ignoring");
+
       await this.sendMessage(
-        message.chat.id,
+        chatId,
         "Sorry, I currently support text messages only.",
       );
 
       return;
     }
 
+    logger.debug({ chatId, text: message.text }, "[telegram] text message received");
+
     try {
       await this.handleTextMessage(message);
     } catch (error) {
-      console.error("Telegram update failed:", error);
+      logger.error({ err: error, chatId }, "[telegram] failed to handle message");
 
       await this.sendMessage(
-        message.chat.id,
+        chatId,
         "Sorry, something went wrong. Please try again.",
       );
     }
@@ -51,12 +61,21 @@ export class TelegramService {
    * Handles incoming text messages.
    */
   private async handleTextMessage(message: TelegramMessage): Promise<void> {
+    const chatId = message.chat.id;
+
     const customer = await this.customerService.findOrCreate({
       //   telegramChatId: String(message.chat.id),
-      telegramChatId: message.chat.id, //currently number type is used
+      telegramChatId: chatId, //currently number type is used
 
       telegramUsername: message.from?.username ?? "",
     });
+
+    logger.debug(
+      { chatId, customerId: customer.id },
+      "[telegram] resolved customer",
+    );
+
+    const startedAt = Date.now();
 
     const aiResponse = await this.aiChatService.chat({
       customerId: customer.id,
@@ -64,7 +83,20 @@ export class TelegramService {
       text: message.text!,
     });
 
-    await this.sendMessage(message.chat.id, aiResponse.response);
+    logger.debug(
+      {
+        chatId,
+        customerId: customer.id,
+        conversationId: aiResponse.conversationId,
+        durationMs: Date.now() - startedAt,
+        response: aiResponse.response,
+      },
+      "[telegram] agent responded",
+    );
+
+    await this.sendMessage(chatId, aiResponse.response);
+
+    logger.debug({ chatId }, "[telegram] reply sent");
   }
 
   /**

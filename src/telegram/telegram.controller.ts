@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 
+import { logger } from "../shared/logger/logger";
+
 import { TelegramService } from "./telegram.service";
 
 export class TelegramController {
@@ -13,11 +15,13 @@ export class TelegramController {
    */
   handleWebhook = async (req: Request, res: Response): Promise<void> => {
     res.sendStatus(200);
-    console.log("Message received: ", req.body);
+
+    logger.debug({ update: req.body }, "[webhook] update received");
+
     try {
       await this.telegramService.handleUpdate(req.body);
     } catch (error) {
-      console.error("Telegram webhook failed:", error);
+      logger.error({ err: error }, "[webhook] update handling failed");
     }
   };
 }

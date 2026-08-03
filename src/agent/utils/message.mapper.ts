@@ -18,10 +18,14 @@ export function toLangChainMessages(messages: Message[]): BaseMessage[] {
       case "user":
         return new HumanMessage(message.content);
 
-      case "assistant":
+      case "assistant": {
+        const toolCalls = message.metadata?.tool_calls;
+
         return new AIMessage({
           content: message.content,
+          tool_calls: Array.isArray(toolCalls) ? toolCalls : undefined,
         });
+      }
 
       case "tool":
         return new ToolMessage({
@@ -67,9 +71,15 @@ export function toDatabaseMessage(
       role: "assistant",
       content: extractContent(message),
 
-      // <-- preserve first tool call information
-      toolCallId: message.tool_calls?.[0]?.id,
-      toolName: message.tool_calls?.[0]?.name,
+      /**
+       * Preserve the full tool_calls array (id, name, and args for
+       * every call) rather than just the first call's id/name -
+       * that was too lossy to ever reconstruct a valid tool call
+       * from on reload. jsonb round-trips this cleanly.
+       */
+      metadata: message.tool_calls?.length
+        ? { tool_calls: message.tool_calls }
+        : null,
     };
   }
 

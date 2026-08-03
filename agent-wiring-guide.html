@@ -269,7 +269,6 @@ sequenceDiagram
     <span><span class="dot brain"></span>Brain &mdash; the LLM, prompt, provider</span>
     <span><span class="dot hands"></span>Hands &mdash; tools, registry, adapter</span>
     <span><span class="dot plumb"></span>Plumbing &mdash; graph, state, service, utils</span>
-    <span><span class="dot stub"></span>Empty stub &mdash; not built yet</span>
   </div>
   <p>The color tags above follow every file card below, so you can tell at a glance whether a file is deciding something,
   doing something, or just carrying data between the two.</p>
@@ -421,6 +420,8 @@ flowchart TD
     here is <code>(_, right) =&gt; right</code>, meaning "the newest value always wins" &mdash; simplest possible reducer, no accumulation logic.</p>
     <div class="table-wrap"><table>
       <tr><th>field</th><th>what it's for</th></tr>
+      <tr><td><code>customerId</code></td><td>Set once when the run starts and never rewritten by a node. This is the <em>trusted</em> identity a tool reads through <code>ToolContext</code> &mdash; see 4.4 &mdash; instead of trusting any customer id the model might try to pass as a tool argument.</td></tr>
+      <tr><td><code>conversationId</code></td><td>Which conversation this invocation belongs to. Set once at the start alongside <code>customerId</code>.</td></tr>
       <tr><td><code>messages</code></td><td>The full running conversation this graph invocation sees &mdash; loaded once at the start, then rewritten by <code>llm</code>/<code>tool</code> nodes as they append to it.</td></tr>
       <tr><td><code>newMessages</code></td><td>Only what <em>this run</em> produced. This is what <code>ai-chat.service.ts</code> persists &mdash; it never re-saves history that's already in Postgres.</td></tr>
       <tr><td><code>toolResults</code></td><td>Declared as a slot for raw tool output, but not currently populated by <code>ToolNode</code> &mdash; today tool results live inside <code>messages</code> as <code>ToolMessage</code>s instead. Worth knowing this field is aspirational, not wired up yet.</td></tr>
@@ -482,7 +483,13 @@ return {
 <pre><code>const tool = this.registry.get(toolCall.name);
 if (!tool) throw new Error(`Unknown tool: ${toolCall.name}`);
 
-const result = await tool.execute(toolCall.args);
+// The model's arguments are untrusted input — re-validate them
+// against the tool's own schema before anything runs.
+const parsedArgs = tool.schema.safeParse(toolCall.args);
+
+const result = parsedArgs.success
+  ? await tool.execute(parsedArgs.data, { customerId: state.customerId })
+  : { success: false, reason: "INVALID_INPUT", message: "..." };
 
 toolMessages.push(new ToolMessage({
   tool_call_id: toolCall.id,
@@ -492,9 +499,14 @@ toolMessages.push(new ToolMessage({
     for" &mdash; important once more than one tool call happens in the same turn. Notice <code>ToolNode</code> never imports
     <code>SearchDoctorTool</code> or any concrete tool class directly &mdash; it only knows the <code>ToolRegistry</code>. That indirection
     is deliberate, covered next.</p>
+    <p>Two things worth calling out in that second argument to <code>execute()</code>: a malformed or hallucinated argument
+    (e.g. a doctor's name where a UUID is expected) becomes a normal <code>{success: false, ...}</code> tool result the model
+    can react to, instead of an uncaught error crashing the turn &mdash; and <code>customerId</code> comes from <code>state</code>,
+    the graph's own trusted memory, never from <code>toolCall.args</code>. The model is never asked for, and could never supply,
+    whose booking to create or cancel.</p>
     <div class="callout">
       <b>If you forget to register a tool,</b> this is where it explodes at runtime with <code>Unknown tool: yourToolName</code> &mdash;
-      not at compile time. Keep that in mind once you start adding <code>createBooking</code>.
+      not at compile time.
     </div>
   </div>
 
@@ -524,7 +536,10 @@ BookingService</code></pre>
     </div>
     <p>The <code>AgentTool</code> interface every tool implements: <code>name</code>, <code>description</code> (sent to the model so it
     knows when to reach for this tool), <code>schema</code> (a <span class="term">Zod</span> schema &mdash; Zod is a runtime validation
-    library; here it doubles as the definition of what arguments the model is allowed to pass), and <code>execute(input)</code>.</p>
+    library; here it doubles as the definition of what arguments the model is allowed to pass), and
+    <code>execute(input, context)</code>. That second parameter, <code>ToolContext</code>, is how trusted identity
+    (currently just <code>customerId</code>) reaches a tool without the model ever being able to supply or override it &mdash;
+    see the <code>tool.node.ts</code> card above for why that matters.</p>
   </div>
 
   <div class="file hands">
@@ -549,14 +564,26 @@ BookingService</code></pre>
     ask for" and "the service method that actually does it."</p>
   </div>
 
-  <div class="file stub">
+  <div class="file hands">
     <div class="file-head">
       <span class="file-path">checkAvailability.tool.ts &middot; createBooking.tool.ts &middot; cancelBooking.tool.ts</span>
-      <span class="file-tag">empty stubs</span>
+      <span class="file-tag">built &mdash; the other three tools</span>
     </div>
-    <p>All three exist as empty files today. So do <code>booking.service.ts</code>, <code>booking.repository.ts</code>, and
-    <code>booking.types.ts</code> in <code>src/booking/</code>. This is the actual next milestone &mdash; Section 5 below walks through
-    exactly how <code>createBooking</code> would slot into everything you just read.</p>
+    <p>All three are now implemented, following the exact same shape as <code>SearchDoctorTool</code>: a <code>name</code>,
+    a <code>description</code>, a Zod <code>schema</code>, and an <code>execute()</code> that delegates straight to
+    <code>BookingService</code> &mdash; no SQL in any of them. All four tools are registered side by side in
+    <code>agent.bootstrap.ts</code> (4.8).</p>
+    <p><code>createBooking</code> and <code>cancelBooking</code> both pull <code>customerId</code> from the second
+    <code>execute(input, context)</code> argument rather than from the model's own input &mdash; e.g.
+    <code>this.bookingService.cancelBooking({ bookingId: input.bookingId, customerId: context.customerId })</code>.
+    That's the same trusted-identity pattern called out in the <code>tool.node.ts</code> and <code>agent-tools.ts</code>
+    cards above.</p>
+    <p>The real logic lives one layer down, in <code>src/booking/</code>: <code>booking.service.ts</code> has no SQL of
+    its own &mdash; it forwards to <code>booking.repository.ts</code>, which runs <code>bookSlot()</code> and
+    <code>cancelBooking()</code> as actual Postgres transactions (<code>BEGIN</code> &hellip; <code>COMMIT</code>), locking
+    the relevant row with <code>SELECT &hellip; FOR UPDATE</code> first. That's what stops two patients from both grabbing
+    the same appointment slot if they message the bot in the same second, and what makes a double-cancel request a
+    no-op instead of a race.</p>
   </div>
 
   <div class="file hands">
@@ -672,36 +699,37 @@ return new AgentService(graph);</code></pre>
 
 <section id="add-a-tool">
   <h2><span class="kicker">05</span>Adding your next tool: a worked checklist</h2>
-  <p class="lede">Using <code>createBooking</code> as the running example, since it's one of the three empty stubs waiting for you.</p>
+  <p class="lede">All four tools &mdash; <code>searchDoctor</code>, <code>checkAvailability</code>, <code>createBooking</code>,
+  <code>cancelBooking</code> &mdash; are built and registered now. Using a hypothetical <code>rescheduleBooking</code> as the
+  running example, since it's the shape the next tool would take.</p>
   <ol class="checklist">
-    <li><strong>Build the real logic first, with no AI involved.</strong> Fill in <code>booking.types.ts</code>
-      (a <code>Booking</code> shape and a <code>CreateBooking</code> input shape), <code>booking.repository.ts</code>
-      (the SQL &mdash; insert a row into whatever <code>bookings</code> table exists), and <code>booking.service.ts</code>
-      (validation like "is this slot still free" before calling the repository). Model these three files after
-      <code>doctor.repository.ts</code>/<code>doctor.service.ts</code>, which you already have working examples of.</li>
-    <li><strong>Write the tool class</strong> in <code>createBooking.tool.ts</code>, implementing <code>AgentTool</code> exactly like
-      <code>SearchDoctorTool</code> does: pick a <code>name</code> the model will call (e.g. <code>"createBooking"</code>), write a
+    <li><strong>Add the data method first, with no AI involved.</strong> A new method on <code>booking.repository.ts</code>
+      (the SQL) and <code>booking.service.ts</code> (the business rule) if one doesn't already fit &mdash; model these after
+      <code>bookSlot()</code>/<code>cancelBooking()</code>, which you already have working, transactional examples of.</li>
+    <li><strong>Write the tool class</strong> in <code>rescheduleBooking.tool.ts</code>, implementing <code>AgentTool</code> exactly like
+      <code>createBooking.tool.ts</code> does: pick a <code>name</code> the model will call (e.g. <code>"rescheduleBooking"</code>), write a
       <code>description</code> clear enough that the model knows when to use it, define a Zod <code>schema</code> for the arguments
-      (doctor id, date, time, customer id&hellip;), and have <code>execute()</code> call straight into <code>BookingService</code> &mdash;
+      (booking id, new availability id&hellip;), and have <code>execute(input, context)</code> call straight into
+      <code>BookingService</code> &mdash; pulling <code>customerId</code> from <code>context</code>, never from <code>input</code> &mdash;
       no SQL in this file.</li>
-    <li><strong>Register it</strong> in <code>agent.bootstrap.ts</code>: construct <code>BookingRepository</code>/<code>BookingService</code>
-      next to the doctor ones, then add one line: <code>registry.register(new CreateBookingTool(bookingService));</code>.
-      That's the only file that needs to change to make a new tool available &mdash; the graph, nodes, and registry code never
-      change.</li>
-    <li><strong>Update the system prompt</strong> if the model needs new rules &mdash; e.g. "always confirm date, time, and doctor
-      name back to the user before calling <code>createBooking</code>," so it doesn't book something the user didn't actually
-      confirm.</li>
+    <li><strong>Register it</strong> in <code>agent.bootstrap.ts</code>, right next to the other three: add one line,
+      <code>registry.register(new RescheduleBookingTool(bookingService));</code>. That's the only file that needs to change
+      to make a new tool available &mdash; the graph, nodes, and registry code never change.</li>
+    <li><strong>Update the system prompt</strong> (<code>system.prompt.ts</code>) if the model needs new rules &mdash; e.g. "always
+      confirm the new date and time back to the patient before calling <code>rescheduleBooking</code>," so it doesn't
+      reschedule something the patient didn't actually confirm.</li>
     <li><strong>Test it in isolation first</strong>, without touching Telegram or the database round-trip, using
       <code>npm run test:agent</code> (<code>src/scripts/test-agent.ts</code>) &mdash; edit the hardcoded prompt in that file to something
-      like <code>"Book me with Dr. Smith tomorrow at 10am"</code> and watch the console logs <code>llm.node.ts</code> and
+      like <code>"Move my appointment with Dr. Smith to tomorrow at 10am"</code> and watch the console logs <code>llm.node.ts</code> and
       <code>tool.node.ts</code> already print for every step.</li>
   </ol>
   <div class="callout next">
-    <b>Don't forget:</b> if <code>createBooking</code> needs to check availability first, that's exactly what
-    <code>checkAvailability.tool.ts</code> is for &mdash; you may end up building two tools and letting the model decide to call
-    <code>checkAvailability</code> before <code>createBooking</code> on its own, across one <code>llm &rarr; tool &rarr; llm &rarr; tool &rarr; llm</code>
-    loop, rather than hard-coding that sequence yourself. That's the entire point of the graph looping back to <code>llm</code>
-    after every tool call.
+    <b>Don't forget:</b> if <code>rescheduleBooking</code> needs to check availability first, that's exactly what
+    <code>checkAvailability.tool.ts</code> is for &mdash; the model can decide to call <code>checkAvailability</code> before
+    <code>rescheduleBooking</code> on its own, across one <code>llm &rarr; tool &rarr; llm &rarr; tool &rarr; llm</code>
+    loop, rather than you hard-coding that sequence. That's the entire point of the graph looping back to <code>llm</code>
+    after every tool call &mdash; it's exactly how <code>createBooking</code> and <code>checkAvailability</code> already
+    work together today.
   </div>
 </section>
 

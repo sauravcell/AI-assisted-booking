@@ -1,6 +1,8 @@
 import { Pool } from "pg";
 import { db } from "../database/database";
 
+import { logger } from "../shared/logger/logger";
+
 export class DoctorRepository {
   constructor(private readonly pool: Pool = db) {}
 
@@ -13,7 +15,7 @@ export class DoctorRepository {
     `;
 
     const result = await this.pool.query(query);
-    console.log("DB CALL => Final all doctor: ", result.rows ?? "none");
+    logger.debug({ count: result.rows.length }, "[doctor.repository] findAll");
     return result.rows;
   }
 
@@ -26,7 +28,10 @@ export class DoctorRepository {
     `;
 
     const result = await this.pool.query(query, [id]);
-    console.log("DB CALL => Final doctor by id: ", result.rows[0] ?? "none");
+    logger.debug(
+      { id, found: Boolean(result.rows[0]) },
+      "[doctor.repository] findById",
+    );
 
     return result.rows[0] ?? null;
   }
@@ -41,12 +46,35 @@ export class DoctorRepository {
     `;
 
     const result = await this.pool.query(query, [`%${specialization}%`]);
-    console.log(
-      "DB CALL => Final doctor by specialization: ",
-      result.rows ?? "none",
+    logger.debug(
+      { specialization, count: result.rows.length },
+      "[doctor.repository] findBySpecialization",
     );
 
     return result.rows;
+  }
+
+  /**
+   * Distinct specialties actually available at this hospital right
+   * now. Used to ground the agent in real values instead of it
+   * guessing a specialty name from the patient's wording.
+   */
+  async findDistinctSpecializations(): Promise<string[]> {
+    const query = `
+        SELECT DISTINCT specialization
+        FROM doctors
+        WHERE is_active = true
+        ORDER BY specialization;
+    `;
+
+    const result = await this.pool.query(query);
+
+    logger.debug(
+      { count: result.rows.length },
+      "[doctor.repository] findDistinctSpecializations",
+    );
+
+    return result.rows.map((row) => row.specialization);
   }
 
   async searchDoctors(keyword: string) {
@@ -60,11 +88,14 @@ export class DoctorRepository {
                 name ILIKE $1
                 OR specialization ILIKE $1
             )
-        ORDER BY name;   
+        ORDER BY name;
     `;
 
     const result = await this.pool.query(query, [`%${keyword}%`]);
-    console.log("DB CALL => search hDoctors: ", result.rows ?? "none");
+    logger.debug(
+      { keyword, count: result.rows.length },
+      "[doctor.repository] searchDoctors",
+    );
 
     return result.rows;
   }

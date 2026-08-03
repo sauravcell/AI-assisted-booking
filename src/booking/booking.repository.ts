@@ -2,6 +2,8 @@ import { Pool } from "pg";
 
 import { db } from "../database/database";
 
+import { logger } from "../shared/logger/logger";
+
 import {
   Booking,
   BookSlotResult,
@@ -63,6 +65,11 @@ export class BookingRepository {
 
     const result = await this.pool.query(query, values);
 
+    logger.debug(
+      { doctorId, date, count: result.rows.length },
+      "[booking.repository] findAvailableSlots",
+    );
+
     return result.rows.map((row) => this.mapAvailabilityRow(row));
   }
 
@@ -86,6 +93,8 @@ export class BookingRepository {
   }): Promise<BookSlotResult> {
     const client = await this.pool.connect();
 
+    logger.debug({ input }, "[booking.repository] bookSlot: starting transaction");
+
     try {
       await client.query("BEGIN");
 
@@ -99,6 +108,11 @@ export class BookingRepository {
       if (!availability) {
         await client.query("ROLLBACK");
 
+        logger.debug(
+          { availabilityId: input.availabilityId },
+          "[booking.repository] bookSlot: SLOT_NOT_FOUND",
+        );
+
         return {
           success: false,
           reason: "SLOT_NOT_FOUND",
@@ -108,6 +122,11 @@ export class BookingRepository {
 
       if (!availability.is_available) {
         await client.query("ROLLBACK");
+
+        logger.debug(
+          { availabilityId: input.availabilityId },
+          "[booking.repository] bookSlot: SLOT_UNAVAILABLE",
+        );
 
         return {
           success: false,
@@ -167,9 +186,19 @@ export class BookingRepository {
 
       await client.query("COMMIT");
 
+      logger.debug(
+        { bookingId: bookingRow.id, availabilityId: input.availabilityId },
+        "[booking.repository] bookSlot: committed",
+      );
+
       return { success: true, booking: this.mapBookingRow(bookingRow) };
     } catch (error) {
       await client.query("ROLLBACK");
+
+      logger.error(
+        { err: error, input },
+        "[booking.repository] bookSlot: transaction failed, rolled back",
+      );
 
       throw error;
     } finally {
@@ -189,6 +218,8 @@ export class BookingRepository {
   }): Promise<CancelBookingResult> {
     const client = await this.pool.connect();
 
+    logger.debug({ input }, "[booking.repository] cancelBooking: starting transaction");
+
     try {
       await client.query("BEGIN");
 
@@ -202,6 +233,11 @@ export class BookingRepository {
       if (!booking) {
         await client.query("ROLLBACK");
 
+        logger.debug(
+          { bookingId: input.bookingId },
+          "[booking.repository] cancelBooking: BOOKING_NOT_FOUND",
+        );
+
         return {
           success: false,
           reason: "BOOKING_NOT_FOUND",
@@ -212,6 +248,11 @@ export class BookingRepository {
       if (booking.customer_id !== input.customerId) {
         await client.query("ROLLBACK");
 
+        logger.debug(
+          { bookingId: input.bookingId, customerId: input.customerId },
+          "[booking.repository] cancelBooking: NOT_OWNER",
+        );
+
         return {
           success: false,
           reason: "NOT_OWNER",
@@ -221,6 +262,11 @@ export class BookingRepository {
 
       if (booking.status === "CANCELLED") {
         await client.query("ROLLBACK");
+
+        logger.debug(
+          { bookingId: input.bookingId },
+          "[booking.repository] cancelBooking: ALREADY_CANCELLED",
+        );
 
         return {
           success: false,
@@ -246,12 +292,22 @@ export class BookingRepository {
 
       await client.query("COMMIT");
 
+      logger.debug(
+        { bookingId: input.bookingId },
+        "[booking.repository] cancelBooking: committed",
+      );
+
       return {
         success: true,
         booking: this.mapBookingRow(updateResult.rows[0]),
       };
     } catch (error) {
       await client.query("ROLLBACK");
+
+      logger.error(
+        { err: error, input },
+        "[booking.repository] cancelBooking: transaction failed, rolled back",
+      );
 
       throw error;
     } finally {

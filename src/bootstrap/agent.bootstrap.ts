@@ -13,6 +13,7 @@ import { ToolNode } from "../agent/nodes/tool.node";
 import { GroqProvider } from "../agent/providers/groq.provider";
 
 import { ToolRegistry } from "../agent/registry/tool.registry";
+import { ListSpecialtiesTool } from "../agent/tools/listSpecialties.tool";
 import { SearchDoctorTool } from "../agent/tools/searchDoctor.tool";
 import { CheckAvailabilityTool } from "../agent/tools/checkAvailability.tool";
 import { CreateBookingTool } from "../agent/tools/createBooking.tool";
@@ -43,6 +44,7 @@ export function createAgent(): AgentService {
    */
   const registry = new ToolRegistry();
 
+  registry.register(new ListSpecialtiesTool(doctorService));
   registry.register(new SearchDoctorTool(doctorService));
   registry.register(new CheckAvailabilityTool(bookingService));
   registry.register(new CreateBookingTool(bookingService));

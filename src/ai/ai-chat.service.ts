@@ -1,5 +1,7 @@
 import { HumanMessage } from "@langchain/core/messages";
 
+import { logger } from "../shared/logger/logger";
+
 import { AgentService } from "../agent/service/agent.service";
 
 import { ConversationService } from "../conversation/conversation.service";
@@ -35,6 +37,14 @@ export class AIChatService {
       request.customerId,
     );
 
+    logger.debug(
+      {
+        customerId: request.customerId,
+        conversationId: conversation.id,
+      },
+      "[ai-chat] resolved conversation",
+    );
+
     /**
      * Persist the incoming user message first.
      */
@@ -59,12 +69,17 @@ export class AIChatService {
      */
     const messages = toLangChainMessages(history);
 
-    console.log("History sent to agent:");
-    console.dir(messages, { depth: null });
+    logger.debug(
+      { conversationId: conversation.id, historyLength: messages.length },
+      "[ai-chat] loaded conversation history",
+    );
+    logger.debug({ messages }, "[ai-chat] history sent to agent");
 
     /**
      * Invoke the AI agent.
      */
+    const invokeStartedAt = Date.now();
+
     const result = await this.agentService.invoke({
       customerId: request.customerId,
 
@@ -78,6 +93,15 @@ export class AIChatService {
 
       response: "",
     });
+
+    logger.debug(
+      {
+        conversationId: conversation.id,
+        durationMs: Date.now() - invokeStartedAt,
+        newMessageCount: result.newMessages.length,
+      },
+      "[ai-chat] agent graph finished",
+    );
 
     /**
      * result.newMessages contains:
@@ -95,6 +119,11 @@ export class AIChatService {
     );
     await this.messageService.saveMany(
       toDatabaseMessages(conversation.id, generatedMessages),
+    );
+
+    logger.debug(
+      { conversationId: conversation.id, savedCount: generatedMessages.length },
+      "[ai-chat] persisted generated messages",
     );
 
     /**

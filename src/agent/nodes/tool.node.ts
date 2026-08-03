@@ -1,5 +1,7 @@
 import { AIMessage, ToolMessage } from "@langchain/core/messages";
 
+import { logger } from "../../shared/logger/logger";
+
 import { BookingAgentState } from "../state/booking.state";
 import { ToolRegistry } from "../registry/tool.registry";
 
@@ -19,11 +21,30 @@ export class ToolNode {
       const tool = this.registry.get(toolCall.name);
 
       if (!tool) {
+        logger.error(
+          { conversationId: state.conversationId, toolName: toolCall.name },
+          "[tool] model requested an unregistered tool",
+        );
+
         throw new Error(`Unknown tool: ${toolCall.name}`);
       }
       if (!toolCall.id) {
+        logger.error(
+          { conversationId: state.conversationId, toolName: toolCall.name },
+          "[tool] tool call is missing an id",
+        );
+
         throw new Error(`Tool call '${toolCall.name}' is missing an id.`);
       }
+
+      logger.debug(
+        {
+          conversationId: state.conversationId,
+          toolName: toolCall.name,
+          args: toolCall.args,
+        },
+        "[tool] executing",
+      );
 
       /**
        * Validate the LLM-supplied arguments against the tool's own
@@ -34,25 +55,55 @@ export class ToolNode {
        */
       const parsedArgs = tool.schema.safeParse(toolCall.args);
 
-      const result = parsedArgs.success
-        ? await tool.execute(parsedArgs.data, {
-            customerId: state.customerId,
-          })
-        : {
-            success: false,
-            reason: "INVALID_INPUT",
-            message: `Invalid arguments for "${toolCall.name}": ${parsedArgs.error.issues
-              .map((issue) => issue.message)
-              .join("; ")}`,
-          };
+      let result: unknown;
 
-      console.log("\n========== TOOL ==========");
-      console.log("Tool:", toolCall.name);
-      console.log("Arguments:");
-      console.dir(toolCall.args, { depth: null });
-      console.log("Result:");
-      console.dir(result, { depth: null });
-      console.log("==========================\n");
+      if (!parsedArgs.success) {
+        result = {
+          success: false,
+          reason: "INVALID_INPUT",
+          message: `Invalid arguments for "${toolCall.name}": ${parsedArgs.error.issues
+            .map((issue) => issue.message)
+            .join("; ")}`,
+        };
+      } else {
+        try {
+          result = await tool.execute(parsedArgs.data, {
+            customerId: state.customerId,
+          });
+        } catch (error) {
+          /**
+           * A thrown error here (dropped DB connection, pool
+           * exhaustion, an unexpected constraint violation) used to
+           * propagate uncaught through the whole graph invocation.
+           * Turn it into the same kind of structured failure result
+           * every other tool outcome uses, so the LLM sees it and
+           * reacts instead of the turn crashing.
+           */
+          logger.error(
+            {
+              conversationId: state.conversationId,
+              toolName: toolCall.name,
+              err: error,
+            },
+            "[tool] threw during execution",
+          );
+
+          result = {
+            success: false,
+            reason: "TOOL_EXECUTION_ERROR",
+            message: `Something went wrong while running "${toolCall.name}". Please try again.`,
+          };
+        }
+      }
+
+      logger.debug(
+        {
+          conversationId: state.conversationId,
+          toolName: toolCall.name,
+          result,
+        },
+        "[tool] result",
+      );
 
       toolMessages.push(
         new ToolMessage({
