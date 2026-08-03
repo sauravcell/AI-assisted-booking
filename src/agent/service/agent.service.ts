@@ -20,6 +20,10 @@ export class AgentService {
       newMessages: [],
     });
   }
+
+  getGraph() {
+    return this.graph;
+  }
 }
 /*
 import { BookingGraph } from "../graph/booking.graph";

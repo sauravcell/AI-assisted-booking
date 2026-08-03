@@ -22,9 +22,25 @@ const envSchema = z.object({
 
   TELEGRAM_BOT_TOKEN: z.string(),
 
-  GROQ_API_KEY: z.string(),
+  LLM_PROVIDER: z
+    .enum(["groq", "openai", "gemini", "deepseek"])
+    .default("groq"),
 
-  GROQ_MODEL: z.string(),
+  GROQ_API_KEY: z.string().optional(),
+
+  GROQ_MODEL: z.string().optional(),
+
+  OPENAI_API_KEY: z.string().optional(),
+
+  OPENAI_MODEL: z.string().optional(),
+
+  GEMINI_API_KEY: z.string().optional(),
+
+  GEMINI_MODEL: z.string().optional(),
+
+  DEEPSEEK_API_KEY: z.string().optional(),
+
+  DEEPSEEK_MODEL: z.string().optional(),
 
   LANGSMITH_API_KEY: z.string(),
 
