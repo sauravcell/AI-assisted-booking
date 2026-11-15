@@ -4,7 +4,11 @@ import {
   CancelBookingInput,
   CheckAvailabilityInput,
   CreateBookingInput,
+  GetMyBookingsInput,
+  SearchDoctorsWithAvailabilityInput,
 } from "./booking.types";
+
+import { normalizeSpecializationKeyword } from "../doctor/doctor.service";
 
 /**
  * --------------------------------------------------------
@@ -28,6 +32,31 @@ export class BookingService {
     return this.bookingRepository.findAvailableSlots(
       input.doctorId,
       input.date,
+    );
+  }
+
+  /**
+   * Searches doctors by name/specialization and returns their open
+   * slots in one call, instead of chaining checkAvailability per
+   * doctor after a search.
+   */
+  async searchDoctorsWithAvailability(
+    input: SearchDoctorsWithAvailabilityInput,
+  ) {
+    return this.bookingRepository.searchDoctorsWithAvailability({
+      keyword: normalizeSpecializationKeyword(input.keyword),
+      date: input.date,
+    });
+  }
+
+  /**
+   * Gets a customer's own bookings — upcoming by default, or full
+   * history (past + cancelled) when requested.
+   */
+  async getMyBookings(customerId: string, input: GetMyBookingsInput) {
+    return this.bookingRepository.findByCustomerId(
+      customerId,
+      Boolean(input.includeHistory),
     );
   }
 

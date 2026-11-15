@@ -2,13 +2,35 @@ import { Pool } from "pg";
 import { db } from "../database/database";
 
 import { logger } from "../shared/logger/logger";
+import { Doctor } from "./doctor.types";
+
+const DOCTOR_COLUMNS = `
+  id,
+  name,
+  specialization,
+  consultation_fee,
+  experience_years,
+  bio
+`;
 
 export class DoctorRepository {
   constructor(private readonly pool: Pool = db) {}
 
-  async findAll() {
+  private mapRow(row: any): Doctor {
+    return {
+      id: row.id,
+      name: row.name,
+      specialization: row.specialization,
+      consultationFee:
+        row.consultation_fee !== null ? Number(row.consultation_fee) : null,
+      experienceYears: row.experience_years,
+      bio: row.bio,
+    };
+  }
+
+  async findAll(): Promise<Doctor[]> {
     const query = `
-        SELECT *
+        SELECT ${DOCTOR_COLUMNS}
         FROM doctors
         WHERE is_active = true
         ORDER BY name;
@@ -16,12 +38,12 @@ export class DoctorRepository {
 
     const result = await this.pool.query(query);
     logger.debug({ count: result.rows.length }, "[doctor.repository] findAll");
-    return result.rows;
+    return result.rows.map((row) => this.mapRow(row));
   }
 
-  async findById(id: string) {
+  async findById(id: string): Promise<Doctor | null> {
     const query = `
-        SELECT *
+        SELECT ${DOCTOR_COLUMNS}
         FROM doctors
         WHERE id = $1
         LIMIT 1;
@@ -33,12 +55,12 @@ export class DoctorRepository {
       "[doctor.repository] findById",
     );
 
-    return result.rows[0] ?? null;
+    return result.rows[0] ? this.mapRow(result.rows[0]) : null;
   }
 
-  async findBySpecialization(specialization: string) {
+  async findBySpecialization(specialization: string): Promise<Doctor[]> {
     const query = `
-        SELECT *
+        SELECT ${DOCTOR_COLUMNS}
         FROM doctors
         WHERE specialization ILIKE $1
           AND is_active = true
@@ -51,7 +73,7 @@ export class DoctorRepository {
       "[doctor.repository] findBySpecialization",
     );
 
-    return result.rows;
+    return result.rows.map((row) => this.mapRow(row));
   }
 
   /**
@@ -77,9 +99,9 @@ export class DoctorRepository {
     return result.rows.map((row) => row.specialization);
   }
 
-  async searchDoctors(keyword: string) {
+  async searchDoctors(keyword: string): Promise<Doctor[]> {
     const query = `
-        SELECT *
+        SELECT ${DOCTOR_COLUMNS}
         FROM doctors
         WHERE
             is_active = true
@@ -97,6 +119,6 @@ export class DoctorRepository {
       "[doctor.repository] searchDoctors",
     );
 
-    return result.rows;
+    return result.rows.map((row) => this.mapRow(row));
   }
 }

@@ -1,3 +1,5 @@
+import { Doctor } from "../doctor/doctor.types";
+
 /**
  * Booking entity.
  *
@@ -87,3 +89,62 @@ export type CancelBookingResult =
       reason: "BOOKING_NOT_FOUND" | "NOT_OWNER" | "ALREADY_CANCELLED";
       message: string;
     };
+
+export interface SearchDoctorsWithAvailabilityInput {
+  keyword?: string;
+
+  date?: string;
+}
+
+/**
+ * A single open slot, as surfaced inside DoctorWithAvailability.
+ *
+ * doctorId/isAvailable are dropped versus DoctorAvailabilitySlot —
+ * both are implied by nesting under one already-matched doctor.
+ */
+export interface AvailableSlotSummary {
+  id: string;
+
+  availableDate: string;
+
+  startTime: string;
+
+  endTime: string;
+}
+
+/**
+ * Result of searchDoctorsWithAvailability: a doctor plus their open
+ * slots, so the agent gets both in one tool call instead of chaining
+ * searchDoctor -> checkAvailability. Only doctors with at least one
+ * open slot in range are included.
+ */
+export interface DoctorWithAvailability extends Doctor {
+  slots: AvailableSlotSummary[];
+}
+
+export interface GetMyBookingsInput {
+  includeHistory?: boolean;
+}
+
+/**
+ * One of the patient's own bookings, denormalized with the doctor
+ * and slot details needed to display it — avoids the LLM needing a
+ * separate lookup per booking to say who/when.
+ */
+export interface BookingSummary {
+  id: string;
+
+  status: BookingStatus;
+
+  notes: string | null;
+
+  doctorName: string;
+
+  specialization: string;
+
+  availableDate: string;
+
+  startTime: string;
+
+  endTime: string;
+}

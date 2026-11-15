@@ -5,14 +5,16 @@ import {
   ToolMessage,
 } from "@langchain/core/messages";
 
-import { CreateMessage, Message } from "../../message/message.types";
+import { CreateMessage, MessageForContext } from "../../message/message.types";
 
 /**
  * -------------------------
  * Database -> LangChain
  * -------------------------
  */
-export function toLangChainMessages(messages: Message[]): BaseMessage[] {
+export function toLangChainMessages(
+  messages: MessageForContext[],
+): BaseMessage[] {
   return messages.map((message) => {
     switch (message.role) {
       case "user":

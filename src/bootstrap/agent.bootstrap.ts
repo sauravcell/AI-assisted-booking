@@ -24,8 +24,10 @@ import { ToolRegistry } from "../agent/registry/tool.registry";
 import { ListSpecialtiesTool } from "../agent/tools/listSpecialties.tool";
 import { SearchDoctorTool } from "../agent/tools/searchDoctor.tool";
 import { CheckAvailabilityTool } from "../agent/tools/checkAvailability.tool";
+import { SearchDoctorsWithAvailabilityTool } from "../agent/tools/searchDoctorsWithAvailability.tool";
 import { CreateBookingTool } from "../agent/tools/createBooking.tool";
 import { CancelBookingTool } from "../agent/tools/cancelBooking.tool";
+import { GetMyBookingsTool } from "../agent/tools/getMyBookings.tool";
 
 import { DoctorService } from "../doctor/doctor.service";
 import { DoctorRepository } from "../doctor/doctor.repository";
@@ -132,9 +134,11 @@ export function createAgent(): AgentService {
 
   registry.register(new ListSpecialtiesTool(doctorService));
   registry.register(new SearchDoctorTool(doctorService));
+  registry.register(new SearchDoctorsWithAvailabilityTool(bookingService));
   registry.register(new CheckAvailabilityTool(bookingService));
   registry.register(new CreateBookingTool(bookingService));
   registry.register(new CancelBookingTool(bookingService));
+  registry.register(new GetMyBookingsTool(bookingService));
 
   /**
    * -------------------------

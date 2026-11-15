@@ -2,7 +2,7 @@ import { Pool } from "pg";
 
 import { db } from "../database/database";
 
-import { CreateMessage, Message } from "./message.types";
+import { CreateMessage, Message, MessageForContext } from "./message.types";
 
 export class MessageRepository {
   constructor(private readonly pool: Pool = db) {}
@@ -53,9 +53,16 @@ export class MessageRepository {
     return this.mapRow(result.rows[0]);
   }
 
-  async findByConversationId(conversationId: string): Promise<Message[]> {
+  /**
+   * Loads history for replay into the LLM (see toLangChainMessages),
+   * which only reads role/content/toolCallId/metadata — so this
+   * selects just those columns instead of the full row.
+   */
+  async findByConversationId(
+    conversationId: string,
+  ): Promise<MessageForContext[]> {
     const query = `
-      SELECT *
+      SELECT role, content, tool_call_id, metadata
       FROM messages
       WHERE conversation_id = $1
       ORDER BY created_at ASC;
@@ -63,7 +70,12 @@ export class MessageRepository {
 
     const result = await this.pool.query(query, [conversationId]);
 
-    return result.rows.map((row) => this.mapRow(row));
+    return result.rows.map((row) => ({
+      role: row.role,
+      content: row.content,
+      toolCallId: row.tool_call_id ?? undefined,
+      metadata: row.metadata,
+    }));
   }
 
   async deleteByConversationId(conversationId: string): Promise<void> {

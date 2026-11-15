@@ -18,6 +18,17 @@ export interface Message {
   createdAt: Date;
 }
 
+/**
+ * Minimal shape needed to replay conversation history into
+ * LangChain messages (see toLangChainMessages). findByConversationId
+ * returns this instead of the full Message, since nothing in that
+ * path reads id/conversationId/toolName/createdAt.
+ */
+export type MessageForContext = Pick<
+  Message,
+  "role" | "content" | "toolCallId" | "metadata"
+>;
+
 export interface CreateMessage {
   conversationId: string;
 

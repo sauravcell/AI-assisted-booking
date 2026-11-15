@@ -24,6 +24,24 @@ export interface SearchDoctorsInput {
   keyword?: string;
 }
 
+/**
+ * Trims a raw keyword and resolves it against known specialty aliases
+ * (e.g. "cardiologist" -> "Cardiology"). Shared by DoctorService and
+ * BookingService.searchDoctorsWithAvailability so both search paths
+ * match the same doctors for the same input.
+ */
+export function normalizeSpecializationKeyword(
+  keyword?: string,
+): string | undefined {
+  const trimmed = keyword?.trim();
+
+  if (!trimmed) {
+    return undefined;
+  }
+
+  return SPECIALIZATION_ALIASES[trimmed.toLowerCase()] ?? trimmed;
+}
+
 export class DoctorService {
   constructor(private readonly doctorRepository: DoctorRepository) {}
 
@@ -41,14 +59,11 @@ export class DoctorService {
    * returns all doctors.
    */
   async searchDoctors(input: SearchDoctorsInput) {
-    const keyword = input.keyword?.trim();
+    const normalizedKeyword = normalizeSpecializationKeyword(input.keyword);
 
-    if (!keyword) {
+    if (!normalizedKeyword) {
       return this.doctorRepository.findAll();
     }
-
-    const normalizedKeyword =
-      SPECIALIZATION_ALIASES[keyword.toLowerCase()] ?? keyword;
 
     return this.doctorRepository.searchDoctors(normalizedKeyword);
   }

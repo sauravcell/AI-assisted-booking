@@ -1,6 +1,6 @@
 import { MessageRepository } from "./message.repository";
 
-import { CreateMessage, Message } from "./message.types";
+import { CreateMessage, Message, MessageForContext } from "./message.types";
 
 export class MessageService {
   constructor(private readonly repository: MessageRepository) {}
@@ -9,7 +9,9 @@ export class MessageService {
     return this.repository.create(message);
   }
 
-  async getConversationMessages(conversationId: string): Promise<Message[]> {
+  async getConversationMessages(
+    conversationId: string,
+  ): Promise<MessageForContext[]> {
     return this.repository.findByConversationId(conversationId);
   }
 

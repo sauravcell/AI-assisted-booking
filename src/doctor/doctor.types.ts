@@ -1,7 +1,9 @@
 /**
- * Doctor entity.
+ * Doctor entity, as surfaced to the LLM tools.
  *
- * Mirrors the doctors table.
+ * Deliberately excludes columns the agent doesn't need to
+ * decide/present a doctor (is_active, created_at, updated_at,
+ * email) to keep tool-result payloads small.
  */
 export interface Doctor {
   id: string;
@@ -10,11 +12,11 @@ export interface Doctor {
 
   specialization: string;
 
-  consultationFee: number;
+  consultationFee: number | null;
 
-  isActive: boolean;
+  experienceYears: number | null;
 
-  createdAt: Date;
+  bio: string | null;
 }
 
 /**
